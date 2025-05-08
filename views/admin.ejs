@@ -1,0 +1,12 @@
+
+<h2>Admin – alle innsendte bets</h2>
+<table border="1">
+  <tr><th>Navn</th><th>Kategori</th><th>Bet</th></tr>
+  <% rows.forEach(function(row) { %>
+    <tr>
+      <td><%= row.name %></td>
+      <td><%= row.category %></td>
+      <td><%= row.bet %></td>
+    </tr>
+  <% }); %>
+</table>

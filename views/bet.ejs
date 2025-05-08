@@ -1,0 +1,38 @@
+
+<h2>Legg inn dine bets</h2>
+<form action="/bet/<%= userId %>" method="POST">
+  <label>Kjønn:</label>
+  <select name="gender">
+    <option value="gutt">Gutt</option>
+    <option value="jente">Jente</option>
+  </select><br>
+
+  <label>Vekt:</label>
+  <select name="weight">
+    <option value="under 3kg">Under 3kg</option>
+    <option value="3-3.5kg">3-3.5kg</option>
+    <option value="over 3.5kg">Over 3.5kg</option>
+  </select><br>
+
+  <label>Fødselsdato:</label>
+  <input type="date" name="birthdate"><br>
+
+  <label>Født med hår?</label>
+  <select name="hair">
+    <option value="ja">Ja</option>
+    <option value="nei">Nei</option>
+  </select><br>
+
+  <label>Første ord:</label>
+  <input type="text" name="firstword"><br>
+
+  <label>Hvilket lag blir babyen fan av?</label>
+  <select name="team">
+    <option value="Liverpool">Liverpool</option>
+    <option value="Man Utd">Man Utd</option>
+    <option value="Rosenborg">Rosenborg</option>
+    <option value="Brann">Brann</option>
+  </select><br>
+
+  <button type="submit">Send inn</button>
+</form>
