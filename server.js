@@ -4,21 +4,18 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
+const db = new sqlite3.Database('./bets.db');
+
+const deadline = new Date("2025-06-30T23:59:59");
+const adminPassword = "truls123";
+
+// Opprett tabeller
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
   saldo INTEGER DEFAULT 1000
-)`);const db = new sqlite3.Database('./bets.db');
-
-const deadline = new Date("2025-06-30T23:59:59");
-
-db.run(`CREATE TABLE IF NOT EXISTS scores (user_id INTEGER, reaction INTEGER, flappy INTEGER)`);\napp.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
-
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT
 )`);
+
 db.run(`CREATE TABLE IF NOT EXISTS bets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
@@ -26,27 +23,40 @@ db.run(`CREATE TABLE IF NOT EXISTS bets (
   bet TEXT
 )`);
 
+db.run(`CREATE TABLE IF NOT EXISTS scores (
+  user_id INTEGER,
+  reaction INTEGER,
+  flappy INTEGER
+)`);
+
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Registrering
 app.get('/', (req, res) => {
   res.render('register');
 });
 
 app.post('/register', (req, res) => {
   const name = req.body.name;
-  db.run('INSERT INTO users (name) VALUES (?)', [name], function(err) {
-    if (err) {
-      console.error(err);
-      return res.send("Feil ved registrering");
-    }
-    res.redirect(`/mode/${this.lastID}`);
+  db.run('INSERT INTO users (name, saldo) VALUES (?, ?)', [name, 1000], function(err) {
+    if (err) return res.send("Feil ved registrering");
+    res.redirect(`/start/${this.lastID}`);
   });
 });
 
+// Startvalg
+app.get('/start/:userId', (req, res) => {
+  res.render('start', { userId: req.params.userId });
+});
+
+// Betting
 app.get('/bet/:userId', (req, res) => {
   const userId = req.params.userId;
   const now = new Date();
   const expired = now > deadline;
 
-  // Hent alle vekter og datoer fra bets
   db.all(`SELECT category, bet FROM bets`, (err, rows) => {
     if (err) return res.send('Feil ved henting av data');
 
@@ -72,9 +82,7 @@ app.get('/bet/:userId', (req, res) => {
 
 app.post('/bet/:userId', (req, res) => {
   const now = new Date();
-  if (now > deadline) {
-    return res.send("Tipping er stengt. Du er for sein, kompis!");
-  }
+  if (now > deadline) return res.send("Tipping er stengt. Du er for sein, kompis!");
 
   const userId = req.params.userId;
   const { weight, birthdate, hair } = req.body;
@@ -84,25 +92,85 @@ app.post('/bet/:userId', (req, res) => {
   db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'hair', hair]);
   db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'truls_keeg', 'Ja']);
 
-  res.redirect(`/reaction`);
+  res.redirect(`/casino/${userId}`);
 });
 
-app.listen(3005, () => {
-  console.log("🎉 BABYBET kjører på http://localhost:3005");
+// Casino
+app.get('/casino/:userId', (req, res) => {
+  const userId = req.params.userId;
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (err || !row) return res.send("Fant ikke saldo.");
+    res.render('casino', { userId, saldo: row.saldo });
+  });
 });
 
-
-app.get('/reaction', (req, res) => {
-  res.render('reaction');
+app.get('/casino/reaction/:userId', (req, res) => {
+  res.render('reaction', { userId: req.params.userId });
 });
 
-
-app.get('/flappy', (req, res) => {
-  res.render('flappy');
+app.get('/casino/flappy/:userId', (req, res) => {
+  res.render('flappy', { userId: req.params.userId });
 });
 
+// Coinflip
+app.get('/coinflip/:userId', (req, res) => {
+  const userId = req.params.userId;
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (err || !row) return res.send("Fant ikke saldo.");
+    res.render('coinflip', { userId, saldo: row.saldo, message: null });
+  });
+});
 
+app.post('/coinflip/:userId', (req, res) => {
+  const userId = req.body.userId;
+  const guess = req.body.guess;
+  const result = Math.random() < 0.5 ? 'keeg' : 'ikke';
+  const win = guess === result;
+
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (!row || row.saldo < 50) return res.send("Du er blakk 💀");
+
+    const newSaldo = row.saldo - 50 + (win ? 120 : 0);
+    const msg = win ? `🤑 Du traff ${result.toUpperCase()} og vant 120!` : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
+
+    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
+      res.render('coinflip', { userId, saldo: newSaldo, message: msg });
+    });
+  });
+});
+
+// Rulett
+app.get('/roulette/:userId', (req, res) => {
+  const userId = req.params.userId;
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (err || !row) return res.send("Fant ikke saldo.");
+    res.render('roulette', { userId, saldo: row.saldo, message: null });
+  });
+});
+
+app.post('/roulette/:userId', (req, res) => {
+  const userId = req.body.userId;
+  const color = req.body.color;
+  const outcome = Math.random() < 0.5 ? 'red' : 'green';
+  const win = color === outcome;
+
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (!row || row.saldo < 50) return res.send("Du er blakk 💀");
+
+    const newSaldo = row.saldo - 50 + (win ? 100 : 0);
+    const msg = win ? `🎉 Du traff ${outcome.toUpperCase()} og vant 100!` : `😢 Det ble ${outcome.toUpperCase()}. Du tapte.`;
+
+    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
+      res.render('roulette', { userId, saldo: newSaldo, message: msg });
+    });
+  });
+});
+
+// Admin
 app.get('/admin', (req, res) => {
+  const pass = req.query.pass;
+  if (pass !== adminPassword) return res.send("⛔ Du har ikke tilgang, kompis.");
+
   db.all('SELECT users.id, users.name, bets.category, bets.bet FROM users JOIN bets ON users.id = bets.user_id', (err, betRows) => {
     if (err) return res.send('Feil ved henting av bets');
 
@@ -128,7 +196,7 @@ app.get('/admin', (req, res) => {
   });
 });
 
-
+// Leaderboard
 app.get('/leaderboard', (req, res) => {
   db.all('SELECT users.name, scores.reaction, scores.flappy FROM users JOIN scores ON users.id = scores.user_id', (err, rows) => {
     if (err) return res.send('Feil ved henting av leaderboard');
@@ -138,6 +206,7 @@ app.get('/leaderboard', (req, res) => {
   });
 });
 
+// Reset
 app.get('/reset/:userId', (req, res) => {
   const userId = req.params.userId;
   db.run('DELETE FROM bets WHERE user_id = ?', userId);
@@ -145,85 +214,8 @@ app.get('/reset/:userId', (req, res) => {
   res.send('Dine bets og score er slettet.');
 });
 
-
-app.get('/casino/:userId', (req, res) => {
-  const userId = req.params.userId;
-  db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send('Fant ikke saldoen din 😢');
-    res.render('casino', { userId, balance: row.balance });
-  });
-});
-
-
-app.get('/roulette/:userId', (req, res) => {
-  const userId = req.params.userId;
-  db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send("Fant ikke saldo.");
-    res.render('roulette', { userId, balance: row.balance, message: null });
-  });
-});
-
-app.post('/roulette/:userId', (req, res) => {
-  const userId = req.body.userId;
-  const color = req.body.color;
-  const outcome = Math.random() < 0.5 ? 'red' : 'green';
-  const win = color === outcome;
-
-  db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
-    if (!row || row.balance < 50) return res.send("Du er blakk 💀");
-
-    const newBalance = row.balance - 50 + (win ? 100 : 0);
-    const msg = win ? `🎉 Du traff ${outcome.toUpperCase()} og vant 100!` : `😢 Det ble ${outcome.toUpperCase()}. Du tapte.`;
-
-    db.run('UPDATE users SET balance = ? WHERE id = ?', [newBalance, userId], () => {
-      res.render('roulette', { userId, balance: newBalance, message: msg });
-    });
-  });
-});
-
-app.get('/coinflip/:userId', (req, res) => {
-  const userId = req.params.userId;
-  db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send("Fant ikke saldo.");
-    res.render('coinflip', { userId, balance: row.balance, message: null });
-  });
-});
-
-app.post('/coinflip/:userId', (req, res) => {
-  const userId = req.body.userId;
-  const guess = req.body.guess;
-  const result = Math.random() < 0.5 ? 'keeg' : 'ikke';
-  const win = guess === result;
-
-  db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
-    if (!row || row.balance < 50) return res.send("Du er blakk 💀");
-
-    const newBalance = row.balance - 50 + (win ? 120 : 0);
-    const msg = win ? `🤑 Du traff ${result.toUpperCase()} og vant 120!` : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
-
-    db.run('UPDATE users SET balance = ? WHERE id = ?', [newBalance, userId], () => {
-      res.render('coinflip', { userId, balance: newBalance, message: msg });
-    });
-  });
-});
-
-
-app.get('/start/:userId', (req, res) => {
-  res.render('start', { userId: req.params.userId });
-});
-
-app.get('/casino/:userId', (req, res) => {
-  const userId = req.params.userId;
-  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send("Fant ikke saldo.");
-    res.render('casino', { userId, saldo: row.saldo });
-  });
-});
-
-app.get('/casino/reaction/:userId', (req, res) => {
-  res.render('reaction', { userId: req.params.userId });
-});
-
-app.get('/casino/flappy/:userId', (req, res) => {
-  res.render('flappy', { userId: req.params.userId });
+// Start server
+const PORT = process.env.PORT || 3005;
+app.listen(PORT, () => {
+  console.log(`✅ BabyBet kjører på port ${PORT}`);
 });
