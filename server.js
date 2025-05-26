@@ -7,13 +7,15 @@ const app = express();
 const db = new sqlite3.Database('./bets.db');
 
 const deadline = new Date("2025-06-30T23:59:59");
-const adminPassword = "truls123";
+
+db.run(`CREATE TABLE IF NOT EXISTS scores (user_id INTEGER, reaction INTEGER, flappy INTEGER)`);\napp.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT
 )`);
-
 db.run(`CREATE TABLE IF NOT EXISTS bets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
@@ -21,24 +23,17 @@ db.run(`CREATE TABLE IF NOT EXISTS bets (
   bet TEXT
 )`);
 
-db.run(`CREATE TABLE IF NOT EXISTS scores (
-  user_id INTEGER,
-  reaction INTEGER,
-  flappy INTEGER
-)`);
-
-app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
-
 app.get('/', (req, res) => {
   res.render('register');
 });
 
 app.post('/register', (req, res) => {
   const name = req.body.name;
-  db.run('INSERT INTO users (name) VALUES (?)', [name], function (err) {
-    if (err) return res.send("Feil ved registrering");
+  db.run('INSERT INTO users (name) VALUES (?)', [name], function(err) {
+    if (err) {
+      console.error(err);
+      return res.send("Feil ved registrering");
+    }
     res.redirect(`/bet/${this.lastID}`);
   });
 });
@@ -48,6 +43,7 @@ app.get('/bet/:userId', (req, res) => {
   const now = new Date();
   const expired = now > deadline;
 
+  // Hent alle vekter og datoer fra bets
   db.all(`SELECT category, bet FROM bets`, (err, rows) => {
     if (err) return res.send('Feil ved henting av data');
 
@@ -73,7 +69,9 @@ app.get('/bet/:userId', (req, res) => {
 
 app.post('/bet/:userId', (req, res) => {
   const now = new Date();
-  if (now > deadline) return res.send("Tipping er stengt.");
+  if (now > deadline) {
+    return res.send("Tipping er stengt. Du er for sein, kompis!");
+  }
 
   const userId = req.params.userId;
   const { weight, birthdate, hair } = req.body;
@@ -83,46 +81,25 @@ app.post('/bet/:userId', (req, res) => {
   db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'hair', hair]);
   db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'truls_keeg', 'Ja']);
 
-  res.redirect(`/reaction/${userId}`);
+  res.redirect(`/reaction`);
 });
 
-app.get('/reaction/:userId', (req, res) => {
-  res.render('reaction', { userId: req.params.userId });
+app.listen(3005, () => {
+  console.log("🎉 BABYBET kjører på http://localhost:3005");
 });
 
-app.post('/reaction-score', (req, res) => {
-  const userId = req.body.userId;
-  const time = parseInt(req.body.reactionScore);
 
-  // Konverter tid til poeng
-  let reactionScore = 0;
-  if (time < 150) reactionScore = 100;
-  else if (time < 300) reactionScore = 75;
-  else if (time < 500) reactionScore = 50;
-  else if (time < 800) reactionScore = 25;
-  else reactionScore = 10;
-
-  res.redirect(`/flappy/${userId}?reactionScore=${reactionScore}`);
+app.get('/reaction', (req, res) => {
+  res.render('reaction');
 });
 
-app.get('/flappy/:userId', (req, res) => {
-  const userId = req.params.userId;
-  const reactionScore = req.query.reactionScore;
-  res.render('flappy', { userId, reactionScore });
+
+app.get('/flappy', (req, res) => {
+  res.render('flappy');
 });
 
-app.post('/final-score', (req, res) => {
-  const userId = req.body.userId;
-  const reaction = parseInt(req.body.reaction);
-  const flappy = parseInt(req.body.flappy);
-  db.run('INSERT INTO scores (user_id, reaction, flappy) VALUES (?, ?, ?)', [userId, reaction, flappy]);
-  res.render('score', { total: reaction + flappy });
-});
 
 app.get('/admin', (req, res) => {
-  const pass = req.query.pass;
-  if (pass !== adminPassword) return res.send("⛔ Du har ikke tilgang, kompis.");
-
   db.all('SELECT users.id, users.name, bets.category, bets.bet FROM users JOIN bets ON users.id = bets.user_id', (err, betRows) => {
     if (err) return res.send('Feil ved henting av bets');
 
@@ -148,9 +125,10 @@ app.get('/admin', (req, res) => {
   });
 });
 
+
 app.get('/leaderboard', (req, res) => {
   db.all('SELECT users.name, scores.reaction, scores.flappy FROM users JOIN scores ON users.id = scores.user_id', (err, rows) => {
-    if (err) return res.send('Feil ved leaderboard');
+    if (err) return res.send('Feil ved henting av leaderboard');
     const ranked = rows.map(r => ({ ...r, total: r.reaction + r.flappy }))
                        .sort((a, b) => b.total - a.total);
     res.render('leaderboard', { scores: ranked });
@@ -164,7 +142,11 @@ app.get('/reset/:userId', (req, res) => {
   res.send('Dine bets og score er slettet.');
 });
 
-const PORT = process.env.PORT || 3005;
-app.listen(PORT, () => {
-  console.log("✅ BabyBet kjører på port " + PORT);
+
+app.get('/casino/:userId', (req, res) => {
+  const userId = req.params.userId;
+  db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
+    if (err || !row) return res.send('Fant ikke saldoen din 😢');
+    res.render('casino', { userId, balance: row.balance });
+  });
 });

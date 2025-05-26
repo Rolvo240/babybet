@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎰 Casino</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-black text-white min-h-screen flex flex-col items-center justify-center space-y-8 p-6">
+  <h1 class="text-4xl font-bold text-yellow-400">🎰 BabyBet Casino</h1>
+  <p class="text-lg">Saldo: <span class="font-bold text-green-400"><%= balance %></span> 🪙</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-xl">
+    <a href="/roulette/<%= userId %>" class="bg-red-600 hover:bg-red-700 rounded-xl p-6 text-center shadow-lg transition">
+      <h2 class="text-2xl font-bold">🔴 Rød / 🟢 Grønn Rulett</h2>
+      <p class="mt-2 text-sm">Bet 50 – vinn 100!</p>
+    </a>
+    <a href="/coinflip/<%= userId %>" class="bg-blue-600 hover:bg-blue-700 rounded-xl p-6 text-center shadow-lg transition">
+      <h2 class="text-2xl font-bold">🪙 Keeg / Ikke keeg</h2>
+      <p class="mt-2 text-sm">Bet 50 – vinn 120!</p>
+    </a>
+  </div>
+</body>
+</html>
