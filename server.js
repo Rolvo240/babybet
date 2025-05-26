@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
 
 app.post('/register', (req, res) => {
   const name = req.body.name;
-  db.run('INSERT INTO users (name) VALUES (?)', [name], function(err) {
+  db.run('INSERT INTO users (name, saldo) VALUES (?, ?)', [name, 1000], function(err) {
     if (err) return res.send("Feil ved registrering");
     res.redirect(`/start/${this.lastID}`);
   });
@@ -91,8 +91,6 @@ app.post('/bet/:userId', (req, res) => {
   res.redirect(`/casino/${userId}`);
 });
 
-// ------------------- CASINO ----------------------
-
 app.get('/casino/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
@@ -108,8 +106,6 @@ app.get('/casino/reaction/:userId', (req, res) => {
 app.get('/casino/flappy/:userId', (req, res) => {
   res.render('flappy', { userId: req.params.userId });
 });
-
-// ------------------- SPILL: ROULETTE ----------------------
 
 app.get('/roulette/:userId', (req, res) => {
   const userId = req.params.userId;
@@ -137,8 +133,6 @@ app.post('/roulette/:userId', (req, res) => {
   });
 });
 
-// ------------------- SPILL: COIN FLIP ----------------------
-
 app.get('/coinflip/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
@@ -164,8 +158,6 @@ app.post('/coinflip/:userId', (req, res) => {
     });
   });
 });
-
-// ------------------- ADMIN ----------------------
 
 app.get('/admin', (req, res) => {
   const pass = req.query.pass;
@@ -214,5 +206,5 @@ app.get('/reset/:userId', (req, res) => {
 
 const PORT = process.env.PORT || 3005;
 app.listen(PORT, () => {
-  console.log(`✅ BabyBet kjører på port ${PORT}`);
+  console.log("✅ BabyBet kjører på port " + PORT);
 });
