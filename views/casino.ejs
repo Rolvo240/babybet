@@ -1,24 +1,21 @@
 <!DOCTYPE html>
-<html lang="no">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎰 Casino</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BabyCasino</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-gray-900 to-black text-white min-h-screen flex flex-col items-center justify-center space-y-8 p-6">
-  <h1 class="text-4xl font-bold text-yellow-400">🎰 BabyBet Casino</h1>
-  <p class="text-lg">Saldo: <span class="font-bold text-green-400"><%= balance %></span> 🪙</p>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-xl">
-    <a href="/roulette/<%= userId %>" class="bg-red-600 hover:bg-red-700 rounded-xl p-6 text-center shadow-lg transition">
-      <h2 class="text-2xl font-bold">🔴 Rød / 🟢 Grønn Rulett</h2>
-      <p class="mt-2 text-sm">Bet 50 – vinn 100!</p>
-    </a>
-    <a href="/coinflip/<%= userId %>" class="bg-blue-600 hover:bg-blue-700 rounded-xl p-6 text-center shadow-lg transition">
-      <h2 class="text-2xl font-bold">🪙 Keeg / Ikke keeg</h2>
-      <p class="mt-2 text-sm">Bet 50 – vinn 120!</p>
-    </a>
+<body class="bg-gradient-to-tr from-purple-900 to-pink-500 text-white min-h-screen p-6">
+  <div class="max-w-xl mx-auto">
+    <h1 class="text-4xl font-extrabold text-center mb-6">🎰 BabyCasino</h1>
+    <p class="text-center text-xl mb-4">Saldo: <span class="font-bold"><%= saldo %> 💰</span></p>
+    <div class="grid grid-cols-1 gap-4">
+      <a href="/casino/reaction/<%= userId %>" class="bg-pink-600 hover:bg-pink-700 p-4 rounded-xl text-center text-xl font-bold transition">👶 Reaction Game</a>
+      <a href="/casino/flappy/<%= userId %>" class="bg-purple-600 hover:bg-purple-700 p-4 rounded-xl text-center text-xl font-bold transition">🍼 Flappy Baby</a>
+      <a href="#" class="bg-red-600 opacity-50 p-4 rounded-xl text-center text-xl font-bold transition">🎲 Keeg / Ikke Keeg (kommer)</a>
+      <a href="#" class="bg-green-600 opacity-50 p-4 rounded-xl text-center text-xl font-bold transition">🎯 Rød / Grønn (kommer)</a>
+    </div>
   </div>
 </body>
 </html>
