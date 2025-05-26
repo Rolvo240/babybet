@@ -9,6 +9,7 @@ const db = new sqlite3.Database('./bets.db');
 const deadline = new Date("2025-06-30T23:59:59");
 const adminPassword = "truls123";
 
+// Opprett tabeller
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
@@ -46,13 +47,13 @@ app.post('/register', (req, res) => {
   });
 });
 
-// Valg mellom babybet og casino
+// Modusvalg
 app.get('/mode/:userId', (req, res) => {
   const userId = req.params.userId;
   res.render('mode', { userId });
 });
 
-// BabyBet flow
+// BabyBetting
 app.get('/bet/:userId', (req, res) => {
   const userId = req.params.userId;
   const expired = new Date() > deadline;
@@ -97,7 +98,7 @@ app.post('/bet/:userId', (req, res) => {
   res.redirect(`/reaction/${userId}`);
 });
 
-// Reaction-spill → poeng
+// Reaction → score
 app.get('/reaction/:userId', (req, res) => {
   res.render('reaction', { userId: req.params.userId });
 });
@@ -129,7 +130,7 @@ app.post('/final-score', (req, res) => {
   res.render('score', { total: reaction + flappy });
 });
 
-// Casino og spill
+// Casino
 app.get('/casino/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT balance FROM users WHERE id = ?', [userId], (err, row) => {
@@ -186,7 +187,7 @@ app.post('/coinflip/:userId', (req, res) => {
   });
 });
 
-// Admin + diverse
+// Admin + leaderboard
 app.get('/admin', (req, res) => {
   const pass = req.query.pass;
   if (pass !== adminPassword) return res.send("⛔ Du har ikke tilgang, kompis.");
@@ -227,6 +228,7 @@ app.get('/reset/:userId', (req, res) => {
   res.send('Dine bets og score er slettet.');
 });
 
+// Start server
 const PORT = process.env.PORT || 3005;
 app.listen(PORT, () => {
   console.log("✅ BabyBet kjører på port " + PORT);
