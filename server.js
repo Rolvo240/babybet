@@ -7,15 +7,13 @@ const app = express();
 const db = new sqlite3.Database('./bets.db');
 
 const deadline = new Date("2025-06-30T23:59:59");
-
-db.run(`CREATE TABLE IF NOT EXISTS scores (user_id INTEGER, reaction INTEGER, flappy INTEGER)`);\napp.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
+const adminPassword = "truls123";
 
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT
 )`);
+
 db.run(`CREATE TABLE IF NOT EXISTS bets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
@@ -23,17 +21,24 @@ db.run(`CREATE TABLE IF NOT EXISTS bets (
   bet TEXT
 )`);
 
+db.run(`CREATE TABLE IF NOT EXISTS scores (
+  user_id INTEGER,
+  reaction INTEGER,
+  flappy INTEGER
+)`);
+
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
 app.get('/', (req, res) => {
   res.render('register');
 });
 
 app.post('/register', (req, res) => {
   const name = req.body.name;
-  db.run('INSERT INTO users (name) VALUES (?)', [name], function(err) {
-    if (err) {
-      console.error(err);
-      return res.send("Feil ved registrering");
-    }
+  db.run('INSERT INTO users (name) VALUES (?)', [name], function (err) {
+    if (err) return res.send('Feil ved registrering');
     res.redirect(`/bet/${this.lastID}`);
   });
 });
@@ -43,7 +48,6 @@ app.get('/bet/:userId', (req, res) => {
   const now = new Date();
   const expired = now > deadline;
 
-  // Hent alle vekter og datoer fra bets
   db.all(`SELECT category, bet FROM bets`, (err, rows) => {
     if (err) return res.send('Feil ved henting av data');
 
@@ -84,22 +88,20 @@ app.post('/bet/:userId', (req, res) => {
   res.redirect(`/reaction`);
 });
 
-app.listen(3005, () => {
-  console.log("🎉 BABYBET kjører på http://localhost:3005");
-});
-
-
 app.get('/reaction', (req, res) => {
   res.render('reaction');
 });
-
 
 app.get('/flappy', (req, res) => {
   res.render('flappy');
 });
 
-
 app.get('/admin', (req, res) => {
+  const pass = req.query.pass;
+  if (pass !== adminPassword) {
+    return res.send("⛔ Du har ikke tilgang, kompis.");
+  }
+
   db.all('SELECT users.id, users.name, bets.category, bets.bet FROM users JOIN bets ON users.id = bets.user_id', (err, betRows) => {
     if (err) return res.send('Feil ved henting av bets');
 
@@ -125,7 +127,6 @@ app.get('/admin', (req, res) => {
   });
 });
 
-
 app.get('/leaderboard', (req, res) => {
   db.all('SELECT users.name, scores.reaction, scores.flappy FROM users JOIN scores ON users.id = scores.user_id', (err, rows) => {
     if (err) return res.send('Feil ved henting av leaderboard');
@@ -140,4 +141,9 @@ app.get('/reset/:userId', (req, res) => {
   db.run('DELETE FROM bets WHERE user_id = ?', userId);
   db.run('DELETE FROM scores WHERE user_id = ?', userId);
   res.send('Dine bets og score er slettet.');
+});
+
+const PORT = process.env.PORT || 3005;
+app.listen(PORT, () => {
+  console.log("✅ BabyBet kjører på port " + PORT);
 });
