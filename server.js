@@ -85,15 +85,31 @@ app.post('/bet/:userId', (req, res) => {
   db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'hair', hair]);
   db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'truls_keeg', 'Ja']);
 
-  res.redirect(`/reaction`);
+  res.redirect(`/reaction/${userId}`);
 });
 
-app.get('/reaction', (req, res) => {
-  res.render('reaction');
+app.get('/reaction/:userId', (req, res) => {
+  res.render('reaction', { userId: req.params.userId });
 });
 
-app.get('/flappy', (req, res) => {
-  res.render('flappy');
+app.post('/reaction-score', (req, res) => {
+  const userId = req.body.userId;
+  const reactionScore = parseInt(req.body.reactionScore);
+  res.redirect(`/flappy/${userId}?reactionScore=${reactionScore}`);
+});
+
+app.get('/flappy/:userId', (req, res) => {
+  const userId = req.params.userId;
+  const reactionScore = req.query.reactionScore;
+  res.render('flappy', { userId, reactionScore });
+});
+
+app.post('/final-score', (req, res) => {
+  const userId = req.body.userId;
+  const reaction = parseInt(req.body.reaction);
+  const flappy = parseInt(req.body.flappy);
+  db.run('INSERT INTO scores (user_id, reaction, flappy) VALUES (?, ?, ?)', [userId, reaction, flappy]);
+  res.render('score', { total: reaction + flappy });
 });
 
 app.get('/admin', (req, res) => {
