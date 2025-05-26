@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bet registrert</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/confetti.browser.min.js"></script>
+</head>
+<body class="bg-green-50 flex flex-col items-center justify-center min-h-screen text-center">
+  <div class="bg-white p-8 rounded shadow max-w-md">
+    <h1 class="text-3xl font-bold text-green-700">🎉 Bet registrert!</h1>
+    <p class="mt-2 text-gray-600">Trykk for konfetti og lyd 👇</p>
+    <button id="celebrateBtn" class="mt-4 px-6 py-3 bg-green-600 text-white font-bold rounded hover:bg-green-700 transition-all duration-200 shadow-lg">
+      🎊 Feir!
+    </button>
+  </div>
+
+  <script>
+    document.getElementById("celebrateBtn").addEventListener("click", () => {
+      const sound = new Audio('/success.mp3');
+      sound.play();
+      confetti({
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.6 }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Baby ⛳</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    canvas {
+      background: linear-gradient(to bottom, #cce7ff, #e0ffc1);
+      display: block;
+      margin: 0 auto;
+      border: 2px solid #4b5563;
+      border-radius: 1rem;
+    }
+  </style>
+</head>
+<body class="bg-blue-100 flex flex-col items-center justify-center min-h-screen text-center p-4">
+  <h1 class="text-2xl font-bold text-indigo-700 mb-4">👶⛳ Flappy Baby – unngå bleiene!</h1>
+  <canvas id="game" width="320" height="480"></canvas>
+  <p class="mt-4 text-gray-600">Trykk på skjermen (eller space) for å hoppe!</p>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const baby = { x: 50, y: 150, width: 30, height: 30, velocity: 0 };
+    const gravity = 0.6;
+    const jump = -10;
+    const pipes = [];
+    let frame = 0;
+    let score = 0;
+    let gameOver = false;
+
+    function drawBaby() {
+      ctx.fillStyle = "#f87171";
+      ctx.beginPath();
+      ctx.arc(baby.x, baby.y, baby.width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawPipes() {
+      ctx.fillStyle = "#10b981";
+      pipes.forEach(pipe => {
+        ctx.fillRect(pipe.x, 0, pipe.width, pipe.top);
+        ctx.fillRect(pipe.x, canvas.height - pipe.bottom, pipe.width, pipe.bottom);
+      });
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      baby.velocity += gravity;
+      baby.y += baby.velocity;
+
+      if (frame % 90 === 0) {
+        const gap = 120;
+        const top = Math.floor(Math.random() * (canvas.height - gap - 40)) + 20;
+        const bottom = canvas.height - top - gap;
+        pipes.push({ x: canvas.width, width: 40, top: top, bottom: bottom });
+      }
+
+      pipes.forEach(pipe => {
+        pipe.x -= 2;
+      });
+
+      // Collision
+      pipes.forEach(pipe => {
+        if (
+          baby.x + baby.width / 2 > pipe.x &&
+          baby.x - baby.width / 2 < pipe.x + pipe.width &&
+          (baby.y - baby.height / 2 < pipe.top || baby.y + baby.height / 2 > canvas.height - pipe.bottom)
+        ) {
+          gameOver = true;
+        }
+      });
+
+      if (baby.y + baby.height / 2 > canvas.height || baby.y - baby.height / 2 < 0) {
+        gameOver = true;
+      }
+
+      score += 1;
+      frame++;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBaby();
+      drawPipes();
+      ctx.fillStyle = "#1f2937";
+      ctx.font = "20px sans-serif";
+      ctx.fillText("Score: " + Math.floor(score / 10), 10, 30);
+
+      if (gameOver) {
+        ctx.fillStyle = "#ef4444";
+        ctx.font = "28px sans-serif";
+        ctx.fillText("Game Over", canvas.width / 2 - 70, canvas.height / 2);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      if (!gameOver) requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+      frame = 0;
+      score = 0;
+      baby.y = 150;
+      baby.velocity = 0;
+      pipes.length = 0;
+      gameOver = false;
+      loop();
+    }
+
+    document.body.addEventListener("keydown", (e) => {
+      if (e.code === "Space") baby.velocity = jump;
+      if (gameOver && e.code === "Space") startGame();
+    });
+
+    document.body.addEventListener("click", () => {
+      if (gameOver) {
+        startGame();
+      } else {
+        baby.velocity = jump;
+      }
+    });
+
+    startGame();
+  </script>
+</body>
+</html>
+
+<form id="scoreForm" method="POST" action="/final-score" style="display:none;">
+  <input type="hidden" name="userId" value="<%= userId %>" />
+  <input type="hidden" name="reaction" value="<%= reactionScore %>" />
+  <input type="hidden" name="flappy" id="flappyInput" />
+</form>
+
+<script>
+  function endGame() {
+    document.getElementById("flappyInput").value = Math.floor(score / 10);
+    document.getElementById("scoreForm").submit();
+  }
+
+  // Replace gameOver = true with:
+  if (baby.y + baby.height / 2 > canvas.height || baby.y - baby.height / 2 < 0) {
+    endGame();
+  }
+</script>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plasser Bet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .odds-high { color: green; animation: pulse 2s infinite; }
+    .odds-low { color: red; animation: blink 1s infinite; }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+  <script>
+    function playSubmitSound() {
+      const audio = new Audio('/submit.mp3');
+      audio.play();
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-indigo-200 min-h-screen flex items-center justify-center p-4">
+<div class="bg-white shadow-2xl rounded-xl p-6 w-full max-w-lg space-y-6">
+  <h1 class="text-3xl font-bold text-center text-indigo-700">Plasser ditt bet</h1>
+
+  <% if (expired) { %>
+    <p class="text-center text-red-600 font-bold text-xl">Tipping er stengt, kompis! 😢</p>
+  <% } else { %>
+    <form method="POST" action="/bet/<%= userId %>" onsubmit="playSubmitSound()" class="space-y-4">
+      <div>
+        <label for="weight" class="block font-semibold">Hva blir vekta? (kg)</label>
+        <input type="text" name="weight" required placeholder="F.eks. 3.7"
+               class="w-full border rounded p-2 shadow-sm" />
+      </div>
+
+      <div>
+        <label for="birthdate" class="block font-semibold">Når kommer babyen?</label>
+        <input type="date" name="birthdate" required class="w-full border rounded p-2 shadow-sm" />
+      </div>
+
+      <button type="submit"
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded shadow hover:scale-105 transition">
+        Plasser Bet 🎯
+      </button>
+    </form>
+
+    <div class="mt-6 bg-gray-100 p-4 rounded">
+      <h2 class="text-lg font-bold text-gray-700 mb-2">Live Odds (basert på gutta):</h2>
+      <p>💪 Mest vanlige vekter:</p>
+      <% weightOdds.forEach(o => { %>
+        <p class="<%= o.odds < 2 ? 'odds-low' : o.odds > 3 ? 'odds-high' : '' %>">
+          <%= o.value %> kg – Odds: <%= o.odds %>
+        </p>
+      <% }) %>
+      <p class="mt-2">🗓️ Mest vanlige datoer:</p>
+      <% dateOdds.forEach(o => { %>
+        <p class="<%= o.odds < 2 ? 'odds-low' : o.odds > 3 ? 'odds-high' : '' %>">
+          <%= o.value %> – Odds: <%= o.odds %>
+        </p>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+</body>
+</html>
