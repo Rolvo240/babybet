@@ -8,7 +8,14 @@ const db = new sqlite3.Database('./bets.db');
 
 const deadline = new Date("2025-06-30T23:59:59");
 
-db.run(`CREATE TABLE IF NOT EXISTS scores (user_id INTEGER, reaction INTEGER, flappy INTEGER)`);\napp.set('view engine', 'ejs');
+db.run(`CREATE TABLE IF NOT EXISTS scores (
+  user_id INTEGER,
+  reaction INTEGER,
+  flappy INTEGER
+)`);
+
+app.set('view engine', 'ejs');
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
