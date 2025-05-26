@@ -1,4 +1,5 @@
 const express = require('express');
+const adminPassword = "truls123"; // ← endre passord her hvis du vil
 const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
@@ -101,6 +102,11 @@ app.post('/final-score', (req, res) => {
 });
 
 app.get('/admin', (req, res) => {
+  const pass = req.query.pass;
+  if (pass !== adminPassword) {
+    return res.send("⛔ Du har ikke tilgang, kompis.");
+  }
+
   db.all('SELECT users.id, users.name, bets.category, bets.bet FROM users JOIN bets ON users.id = bets.user_id', (err, betRows) => {
     if (err) return res.send('Feil ved henting av bets');
 
