@@ -203,36 +203,43 @@ app.get('/casino/:userId', (req, res) => {
   });
 });
 
-app.get('/casino/reaction/:userId', (req, res) => {
+// Middleware for å sjekke saldo
+const checkSaldo = (req, res, next) => {
+  const userId = req.params.userId;
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (err || !row) {
+      console.error("Databasefeil ved saldo-sjekk:", err);
+      return res.status(500).send("Databasefeil");
+    }
+    if (row.saldo <= 0) {
+      return res.redirect('/?message=Du er tom for cash, kompis. Prøv igjen med nytt navn 🧃');
+    }
+    next();
+  });
+};
+
+// Legg til saldo-sjekk på alle spillruter
+app.get('/casino/reaction/:userId', checkSaldo, (req, res) => {
   res.render('reaction', { userId: req.params.userId });
 });
 
-app.get('/casino/flappy/:userId', (req, res) => {
+app.get('/casino/flappy/:userId', checkSaldo, (req, res) => {
   const userId = req.params.userId;
-  // Hent reaction score fra query parameter (sendt fra reaction game)
   const reactionScore = req.query.reactionScore ? parseInt(req.query.reactionScore, 10) : 0;
-
-  // Du kan evt hente eksisterende flappy score fra DB her hvis du vil vise den før spill,
-  // men for nå sender vi bare reactionScore videre.
-  // db.get('SELECT flappy FROM scores WHERE user_id = ?', [userId], (err, row) => {
-  //   const existingFlappyScore = row ? row.flappy : 0;
-  //   res.render('flappy', { userId, reactionScore, existingFlappyScore });
-  // });
-
-  res.render('flappy', { userId, reactionScore }); // Send reactionScore videre til flappy.ejs
+  res.render('flappy', { userId, reactionScore });
 });
 
 // Pikk eller Pung
-app.get('/pikkpung/:userId', (req, res) => {
+app.get('/pikkpung/:userId', checkSaldo, (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err) {
-        console.error("Databasefeil ved henting av saldo (GET pikkpung):", err);
-        return res.status(500).send("Databasefeil");
+      console.error("Databasefeil ved henting av saldo (GET pikkpung):", err);
+      return res.status(500).send("Databasefeil");
     }
     if (!row) {
-        console.error(`Bruker ${userId} ikke funnet ved GET pikkpung.`);
-        return res.send("Fant ikke bruker.");
+      console.error(`Bruker ${userId} ikke funnet ved GET pikkpung.`);
+      return res.send("Fant ikke bruker.");
     }
     res.render('pikkpung', {
       userId: userId,
@@ -242,47 +249,51 @@ app.get('/pikkpung/:userId', (req, res) => {
   });
 });
 
-app.post('/pikkpung/:userId', (req, res) => {
+// Oppdatert POST-rute for Pikk eller Pung med ny logikk
+app.post('/pikkpung/:userId', checkSaldo, (req, res) => {
   console.log("Pikk eller Pung body:", req.body);
   const userId = req.body.userId;
   const guess = req.body.guess;
-  const result = Math.random() < 0.5 ? 'pikk' : 'pung';
-  const win = guess === result;
+  
+  // Generer tilfeldig tall mellom 0 og 1
+  const random = Math.random();
+  let result, win, message, newSaldo;
+  
+  if (random < 0.80) { // 80% sjanse for vanlig gevinst
+    result = guess;
+    win = true;
+    message = "😎 Du vant 100 kr – smooth move, bro";
+    newSaldo = row.saldo - 50 + 100;
+  } else if (random < 0.95) { // 15% sjanse for stor gevinst
+    result = guess;
+    win = true;
+    message = "🎉 Du traff storpikken og vant 1000!";
+    newSaldo = row.saldo - 50 + 1000;
+  } else { // 5% sjanse for å miste alt
+    result = guess === 'pikk' ? 'pung' : 'pikk';
+    win = false;
+    message = "💀 Game over. Det ble en full pungsmell";
+    newSaldo = 0;
+  }
 
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err) {
-      console.error("Databasefeil ved henting av saldo (POST pikkpung):", err);
+    if (err || !row) {
+      console.error("Databasefeil ved henting av saldo:", err);
       return res.status(500).send("Databasefeil");
     }
-     if (!row) {
-       console.error(`Bruker ${userId} ikke funnet ved POST pikkpung.`);
-       return res.send("Fant ikke bruker.");
-    }
-    if (row.saldo < 50) {
-        const msg = "Du er blakk 💀";
-        return res.render('pikkpung', { userId: userId, balance: row.saldo, message: msg });
-    }
 
-    const newSaldo = row.saldo - 50 + (win ? 120 : 0);
-    const msg = win
-      ? `🤑 Du traff ${result.toUpperCase()} og vant 120!`
-      : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
-
-    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], function(err) {
+    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], (err) => {
       if (err) {
-        console.error("Databasefeil ved oppdatering av saldo (POST pikkpung):", err);
-        return res.render('pikkpung', { userId: userId, balance: row.saldo, message: "Databasefeil ved saldo-oppdatering" });
+        console.error("Databasefeil ved oppdatering av saldo:", err);
+        return res.status(500).send("Databasefeil");
       }
-      console.log(`Saldo for user ${userId} oppdatert til ${newSaldo} etter pikkpung.`);
 
-      if (win) {
-        updateStatistics(userId, 120);
-        checkAchievements(userId);
-      }
       res.render('pikkpung', {
         userId: userId,
         balance: newSaldo,
-        message: msg
+        message: message,
+        isBigWin: random < 0.95 && random >= 0.80,
+        isTotalLoss: random >= 0.95
       });
     });
   });
@@ -539,17 +550,4 @@ app.post('/final-score', (req, res) => {
 // Start server
 const port = process.env.PORT || 10000;
 app.listen(port, () => {
-    console.log(`✅ BabyBet kjører på port ${port}`);
-    console.log('Environment:', process.env.NODE_ENV);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
-    db.close((err) => {
-        if (err) {
-            console.error('Error closing database:', err);
-        }
-        process.exit(0);
-    });
-});
+    console.log(`

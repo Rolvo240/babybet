@@ -82,6 +82,11 @@
       font-size: 4rem;
       margin-bottom: 1rem;
     }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-blue-900 via-purple-900 to-blue-900 text-white min-h-screen p-6 flex flex-col items-center justify-center">
@@ -143,12 +148,28 @@
   <audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3"></audio>
 
   <script>
-    <% if (typeof message === 'string' && message.includes('vant')) { %>
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+    <% if (typeof message === 'string') { %>
+      <% if (isBigWin) { %>
+        // Konfetti for stor gevinst
+        confetti({
+          particleCount: 200,
+          spread: 100,
+          origin: { y: 0.6 }
+        });
+      <% } else if (isTotalLoss) { %>
+        // Rumble-effekt for total tap
+        document.body.style.animation = 'shake 0.5s';
+        setTimeout(() => {
+          document.body.style.animation = '';
+        }, 500);
+      <% } else if (message.includes('vant')) { %>
+        // Normal konfetti for vanlig gevinst
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      <% } %>
     <% } %>
   </script>
 </body>
