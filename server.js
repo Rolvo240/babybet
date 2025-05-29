@@ -8,13 +8,34 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
-const db = new sqlite3.Database('./bets.db');
+const db = new sqlite3.Database('./bets.db', (err) => {
+    if (err) {
+        console.error('Error connecting to database:', err);
+        process.exit(1);
+    }
+    console.log('Connected to database successfully');
+});
+
+// Set database timeout
+db.configure('busyTimeout', 5000);
 
 const deadline = new Date("2025-06-30T23:59:59");
 const adminPassword = process.env.ADMIN_PASSWORD;
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "cdn.tailwindcss.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+            fontSrc: ["'self'", "fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "assets.mixkit.co"],
+            connectSrc: ["'self'"],
+            mediaSrc: ["'self'", "assets.mixkit.co"],
+        },
+    },
+}));
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -22,10 +43,21 @@ app.use(express.static('public'));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
 });
 app.use(limiter);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Noe gikk galt!');
+});
+
+// Database error handling
+db.on('error', (err) => {
+    console.error('Database error:', err);
+});
 
 // Opprett tabeller
 db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -354,8 +386,19 @@ app.get('/profile/:userId', (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3005;
-app.listen(PORT, () => {
-  console.log(`✅ BabyBet kjører på port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+const port = process.env.PORT || 10000;
+app.listen(port, () => {
+    console.log(`✅ BabyBet kjører på port ${port}`);
+    console.log('Environment:', process.env.NODE_ENV);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    db.close((err) => {
+        if (err) {
+            console.error('Error closing database:', err);
+        }
+        process.exit(0);
+    });
 });
