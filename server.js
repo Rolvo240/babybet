@@ -1,37 +1,94 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const db = new sqlite3.Database('./bets.db');
 
 const deadline = new Date("2025-06-30T23:59:59");
-const adminPassword = "truls123";
+const adminPassword = process.env.ADMIN_PASSWORD;
+
+// Security middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
 // Opprett tabeller
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
-  saldo INTEGER DEFAULT 1000
+  saldo INTEGER DEFAULT 1000,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS bets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
   category TEXT,
-  bet TEXT
+  bet TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS scores (
   user_id INTEGER,
   reaction INTEGER,
-  flappy INTEGER
+  flappy INTEGER,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
+db.run(`CREATE TABLE IF NOT EXISTS achievements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  description TEXT,
+  icon TEXT,
+  requirement INTEGER
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS user_achievements (
+  user_id INTEGER,
+  achievement_id INTEGER,
+  earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, achievement_id)
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS statistics (
+  user_id INTEGER PRIMARY KEY,
+  games_played INTEGER DEFAULT 0,
+  games_won INTEGER DEFAULT 0,
+  total_winnings INTEGER DEFAULT 0,
+  biggest_win INTEGER DEFAULT 0,
+  last_played DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+// Insert default achievements
+const defaultAchievements = [
+  { name: 'Første Seier', description: 'Vinn ditt første spill', icon: '🏆', requirement: 1 },
+  { name: 'Høy Ruller', description: 'Vinn 1000 poeng', icon: '💰', requirement: 1000 },
+  { name: 'Casino Kong', description: 'Vinn 10 spill', icon: '👑', requirement: 10 },
+  { name: 'Flappy Master', description: 'Få 100 poeng i Flappy Baby', icon: '🍼', requirement: 100 },
+  { name: 'Reaction Pro', description: 'Få 50 poeng i Reaction Game', icon: '⚡', requirement: 50 }
+];
+
+defaultAchievements.forEach(achievement => {
+  db.run('INSERT OR IGNORE INTO achievements (name, description, icon, requirement) VALUES (?, ?, ?, ?)',
+    [achievement.name, achievement.description, achievement.icon, achievement.requirement]);
+});
+
 app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
 
 // Registrering
 app.get('/', (req, res) => {
@@ -134,6 +191,10 @@ app.post('/coinflip/:userId', (req, res) => {
     const msg = win ? `🤑 Du traff ${result.toUpperCase()} og vant 120!` : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
 
     db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
+      if (win) {
+        updateStatistics(userId, 120);
+        checkAchievements(userId);
+      }
       res.render('coinflip', { userId, saldo: newSaldo, message: msg });
     });
   });
@@ -214,8 +275,87 @@ app.get('/reset/:userId', (req, res) => {
   res.send('Dine bets og score er slettet.');
 });
 
+// Oppdater statistikk når en bruker vinner
+function updateStatistics(userId, amount) {
+  db.run(`INSERT INTO statistics (user_id, games_played, games_won, total_winnings, biggest_win)
+          VALUES (?, 1, 1, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET
+          games_played = games_played + 1,
+          games_won = games_won + 1,
+          total_winnings = total_winnings + ?,
+          biggest_win = CASE WHEN ? > biggest_win THEN ? ELSE biggest_win END,
+          last_played = CURRENT_TIMESTAMP`,
+    [userId, amount, amount, amount, amount, amount]);
+}
+
+// Oppdater statistikk når en bruker taper
+function updateLossStatistics(userId) {
+  db.run(`INSERT INTO statistics (user_id, games_played)
+          VALUES (?, 1)
+          ON CONFLICT(user_id) DO UPDATE SET
+          games_played = games_played + 1,
+          last_played = CURRENT_TIMESTAMP`,
+    [userId]);
+}
+
+// Sjekk achievements
+function checkAchievements(userId) {
+  db.get('SELECT * FROM statistics WHERE user_id = ?', [userId], (err, stats) => {
+    if (err || !stats) return;
+
+    db.all('SELECT * FROM achievements', (err, achievements) => {
+      if (err) return;
+
+      achievements.forEach(achievement => {
+        if (stats.games_won >= achievement.requirement) {
+          db.run('INSERT OR IGNORE INTO user_achievements (user_id, achievement_id) VALUES (?, ?)',
+            [userId, achievement.id]);
+        }
+      });
+    });
+  });
+}
+
+// Profile
+app.get('/profile/:userId', (req, res) => {
+  const userId = req.params.userId;
+  
+  // Get user's saldo
+  db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err || !user) return res.send("Fant ikke bruker.");
+
+    // Get user's statistics
+    db.get('SELECT * FROM statistics WHERE user_id = ?', [userId], (err, stats) => {
+      if (err) return res.send("Feil ved henting av statistikk.");
+      
+      // Initialize stats if none exist
+      if (!stats) {
+        stats = {
+          games_played: 0,
+          games_won: 0,
+          total_winnings: 0,
+          biggest_win: 0
+        };
+      }
+
+      // Get all achievements and mark which ones the user has earned
+      db.all('SELECT a.*, CASE WHEN ua.user_id IS NOT NULL THEN 1 ELSE 0 END as earned FROM achievements a LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = ?', [userId], (err, achievements) => {
+        if (err) return res.send("Feil ved henting av achievements.");
+        
+        res.render('profile', { 
+          userId, 
+          saldo: user.saldo,
+          stats,
+          achievements
+        });
+      });
+    });
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3005;
 app.listen(PORT, () => {
   console.log(`✅ BabyBet kjører på port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });
