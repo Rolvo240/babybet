@@ -269,6 +269,27 @@ app.post('/roulette/:userId', (req, res) => {
   });
 });
 
+// Reaction score
+app.post('/reaction-score', (req, res) => {
+  const { userId, reactionScore } = req.body;
+  if (!userId || !reactionScore) return res.status(400).send("Mangler data");
+
+  // Lagre eller oppdater reaction-score for brukeren
+  db.run(
+    `INSERT INTO scores (user_id, reaction) VALUES (?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET reaction=excluded.reaction`,
+    [userId, reactionScore],
+    function (err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Databasefeil");
+      }
+      // Send brukeren videre til casino eller leaderboard
+      res.redirect(`/casino/${userId}`);
+    }
+  );
+});
+
 // Admin
 app.get('/admin', (req, res) => {
   const pass = req.query.pass;
