@@ -220,8 +220,19 @@ app.get('/casino/flappy/:userId', (req, res) => {
 app.get('/coinflip/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send("Fant ikke saldo.");
-    res.render('coinflip', { userId, saldo: row.saldo, message: null });
+    if (err) {
+        console.error("Databasefeil ved henting av saldo (GET coinflip):", err);
+        return res.status(500).send("Databasefeil");
+    }
+    if (!row) {
+        console.error(`Bruker ${userId} ikke funnet ved GET coinflip.`);
+        return res.send("Fant ikke bruker.");
+    }
+    res.render('coinflip', {
+      userId: userId,
+      balance: row.saldo,
+      message: null
+    });
   });
 });
 
@@ -234,24 +245,39 @@ app.post('/coinflip/:userId', (req, res) => {
 
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err) {
-      console.error(err);
+      console.error("Databasefeil ved henting av saldo (POST coinflip):", err);
       return res.status(500).send("Databasefeil");
     }
-    if (!row || row.saldo < 50) return res.send("Du er blakk 💀");
+     if (!row) {
+       console.error(`Bruker ${userId} ikke funnet ved POST coinflip.`);
+       return res.send("Fant ikke bruker.");
+    }
+    if (row.saldo < 50) {
+        const msg = "Du er blakk 💀";
+        return res.render('coinflip', { userId: userId, balance: row.saldo, message: msg });
+    }
 
     const newSaldo = row.saldo - 50 + (win ? 120 : 0);
-    const msg = win ? `🤑 Du traff ${result.toUpperCase()} og vant 120!` : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
+    const msg = win
+      ? `🤑 Du traff ${result.toUpperCase()} og vant 120!`
+      : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
 
-    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], (err) => {
+    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], function(err) {
       if (err) {
-        console.error(err);
-        return res.status(500).send("Databasefeil");
+        console.error("Databasefeil ved oppdatering av saldo (POST coinflip):", err);
+        return res.render('coinflip', { userId: userId, balance: row.saldo, message: "Databasefeil ved saldo-oppdatering" });
       }
+      console.log(`Saldo for user ${userId} oppdatert til ${newSaldo} etter coinflip.`);
+
       if (win) {
         updateStatistics(userId, 120);
         checkAchievements(userId);
       }
-      res.render('coinflip', { userId, saldo: newSaldo, message: msg });
+      res.render('coinflip', {
+        userId: userId,
+        balance: newSaldo,
+        message: msg
+      });
     });
   });
 });
@@ -260,8 +286,19 @@ app.post('/coinflip/:userId', (req, res) => {
 app.get('/roulette/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send("Fant ikke saldo.");
-    res.render('roulette', { userId, saldo: row.saldo, message: null });
+    if (err) {
+        console.error("Databasefeil ved henting av saldo (GET roulette):", err);
+        return res.status(500).send("Databasefeil");
+    }
+    if (!row) {
+        console.error(`Bruker ${userId} ikke funnet ved GET roulette.`);
+        return res.send("Fant ikke bruker.");
+    }
+    res.render('roulette', {
+      userId: userId,
+      balance: row.saldo,
+      message: null
+    });
   });
 });
 
@@ -273,13 +310,34 @@ app.post('/roulette/:userId', (req, res) => {
   const win = color === outcome;
 
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
-    if (!row || row.saldo < 50) return res.send("Du er blakk 💀");
+    if (err) {
+      console.error("Databasefeil ved henting av saldo (POST roulette):", err);
+      return res.status(500).send("Databasefeil");
+    }
+    if (!row) {
+       console.error(`Bruker ${userId} ikke funnet ved POST roulette.`);
+       return res.send("Fant ikke bruker.");
+    }
+    if (row.saldo < 50) {
+        const msg = "Du er blakk 💀";
+        return res.render('roulette', { userId: userId, balance: row.saldo, message: msg });
+    }
 
     const newSaldo = row.saldo - 50 + (win ? 100 : 0);
     const msg = win ? `🎉 Du traff ${outcome.toUpperCase()} og vant 100!` : `😢 Det ble ${outcome.toUpperCase()}. Du tapte.`;
 
-    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
-      res.render('roulette', { userId, saldo: newSaldo, message: msg });
+    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], function(err) {
+      if (err) {
+        console.error("Databasefeil ved oppdatering av saldo (POST roulette):", err);
+        return res.render('roulette', { userId: userId, balance: row.saldo, message: "Databasefeil ved saldo-oppdatering" });
+      }
+      console.log(`Saldo for user ${userId} oppdatert til ${newSaldo} etter roulette.`);
+
+      res.render('roulette', {
+        userId: userId,
+        balance: newSaldo,
+        message: msg
+      });
     });
   });
 });
