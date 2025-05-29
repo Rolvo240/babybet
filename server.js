@@ -65,7 +65,7 @@ db.serialize(() => {
 
     // Scores table
     db.run(`CREATE TABLE IF NOT EXISTS scores (
-        user_id INTEGER,
+        user_id INTEGER PRIMARY KEY,
         reaction INTEGER,
         flappy INTEGER,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -271,10 +271,10 @@ app.post('/roulette/:userId', (req, res) => {
 
 // Reaction score
 app.post('/reaction-score', (req, res) => {
+  console.log(req.body); // Debug!
   const { userId, reactionScore } = req.body;
   if (!userId || !reactionScore) return res.status(400).send("Mangler data");
 
-  // Lagre eller oppdater reaction-score for brukeren
   db.run(
     `INSERT INTO scores (user_id, reaction) VALUES (?, ?)
      ON CONFLICT(user_id) DO UPDATE SET reaction=excluded.reaction`,
@@ -284,7 +284,6 @@ app.post('/reaction-score', (req, res) => {
         console.error(err);
         return res.status(500).send("Databasefeil");
       }
-      // Send brukeren videre til casino eller leaderboard
       res.redirect(`/casino/${userId}`);
     }
   );
