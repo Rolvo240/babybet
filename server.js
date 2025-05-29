@@ -227,12 +227,20 @@ app.post('/coinflip/:userId', (req, res) => {
   const win = guess === result;
 
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Databasefeil");
+    }
     if (!row || row.saldo < 50) return res.send("Du er blakk 💀");
 
     const newSaldo = row.saldo - 50 + (win ? 120 : 0);
     const msg = win ? `🤑 Du traff ${result.toUpperCase()} og vant 120!` : `👎 Det ble ${result.toUpperCase()}. Du tapte.`;
 
-    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
+    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Databasefeil");
+      }
       if (win) {
         updateStatistics(userId, 120);
         checkAchievements(userId);
@@ -271,7 +279,7 @@ app.post('/roulette/:userId', (req, res) => {
 
 // Reaction score
 app.post('/reaction-score', (req, res) => {
-  console.log(req.body); // Debug!
+  console.log("Reaction score body:", req.body);
   const { userId, reactionScore } = req.body;
   if (!userId || !reactionScore) return res.status(400).send("Mangler data");
 
@@ -413,6 +421,26 @@ app.get('/profile/:userId', (req, res) => {
       });
     });
   });
+});
+
+// Final score
+app.post('/final-score', (req, res) => {
+  console.log("Final score body:", req.body);
+  const { userId, flappy } = req.body;
+  if (!userId || !flappy) return res.status(400).send("Mangler data");
+
+  db.run(
+    `INSERT INTO scores (user_id, flappy) VALUES (?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET flappy=excluded.flappy`,
+    [userId, flappy],
+    function (err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Databasefeil");
+      }
+      res.redirect(`/casino/${userId}`);
+    }
+  );
 });
 
 // Start server
