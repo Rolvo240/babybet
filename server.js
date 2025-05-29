@@ -229,7 +229,7 @@ app.get('/casino/flappy/:userId', checkSaldo, (req, res) => {
   res.render('flappy', { userId, reactionScore });
 });
 
-// Pikk eller Pung
+// GET-rute for Pikk eller Pung
 app.get('/pikkpung/:userId', checkSaldo, (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
@@ -243,43 +243,35 @@ app.get('/pikkpung/:userId', checkSaldo, (req, res) => {
     }
     res.render('pikkpung', {
       userId: userId,
-      balance: row.saldo,
+      balance: row.saldo || 0, // Sikrer at balance alltid er et tall
       message: null
     });
   });
 });
 
-// Oppdatert POST-rute for Pikk eller Pung med ny logikk
+// POST-rute for Pikk eller Pung
 app.post('/pikkpung/:userId', checkSaldo, (req, res) => {
-  console.log("Pikk eller Pung body:", req.body);
   const userId = req.body.userId;
   const guess = req.body.guess;
   
-  // Generer tilfeldig tall mellom 0 og 1
-  const random = Math.random();
-  let result, win, message, newSaldo;
-  
-  if (random < 0.80) { // 80% sjanse for vanlig gevinst
-    result = guess;
-    win = true;
-    message = "😎 Du vant 100 kr – smooth move, bro";
-    newSaldo = row.saldo - 50 + 100;
-  } else if (random < 0.95) { // 15% sjanse for stor gevinst
-    result = guess;
-    win = true;
-    message = "🎉 Du traff storpikken og vant 1000!";
-    newSaldo = row.saldo - 50 + 1000;
-  } else { // 5% sjanse for å miste alt
-    result = guess === 'pikk' ? 'pung' : 'pikk';
-    win = false;
-    message = "💀 Game over. Det ble en full pungsmell";
-    newSaldo = 0;
-  }
-
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err || !row) {
       console.error("Databasefeil ved henting av saldo:", err);
       return res.status(500).send("Databasefeil");
+    }
+
+    const random = Math.random();
+    let message, newSaldo;
+    
+    if (random < 0.80) {
+      message = "😎 Du vant 100 kr – smooth move, bro";
+      newSaldo = row.saldo - 50 + 100;
+    } else if (random < 0.95) {
+      message = "🎉 Du traff storpikken og vant 1000!";
+      newSaldo = row.saldo - 50 + 1000;
+    } else {
+      message = "💀 Game over. Det ble en full pungsmell";
+      newSaldo = 0;
     }
 
     db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], (err) => {
