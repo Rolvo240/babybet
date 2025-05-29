@@ -221,6 +221,7 @@ app.get('/coinflip/:userId', (req, res) => {
 });
 
 app.post('/coinflip/:userId', (req, res) => {
+  console.log("Coinflip body:", req.body);
   const userId = req.body.userId;
   const guess = req.body.guess;
   const result = Math.random() < 0.5 ? 'keeg' : 'ikke';
@@ -260,6 +261,7 @@ app.get('/roulette/:userId', (req, res) => {
 });
 
 app.post('/roulette/:userId', (req, res) => {
+  console.log("Roulette body:", req.body);
   const userId = req.body.userId;
   const color = req.body.color;
   const outcome = Math.random() < 0.5 ? 'red' : 'green';
