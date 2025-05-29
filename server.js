@@ -140,7 +140,10 @@ app.get('/', (req, res) => {
 app.post('/register', (req, res) => {
   const name = req.body.name;
   db.run('INSERT INTO users (name, saldo) VALUES (?, ?)', [name, 1000], function(err) {
-    if (err) return res.send("Feil ved registrering");
+    if (err) {
+      console.error("Feil ved registrering:", err);
+      return res.send("Feil ved registrering");
+    }
     res.redirect(`/start/${this.lastID}`);
   });
 });
@@ -198,7 +201,14 @@ app.post('/bet/:userId', (req, res) => {
 app.get('/casino/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err || !row) return res.send("Fant ikke saldo.");
+    if (err) {
+      console.error("Databasefeil ved henting av saldo:", err);
+      return res.redirect('/?message=Noe gikk galt. Prøv igjen!');
+    }
+    if (!row) {
+      console.error(`Bruker ${userId} ikke funnet.`);
+      return res.redirect('/?message=Bruker ikke funnet. Registrer deg på nytt!');
+    }
     res.render('casino', { userId, saldo: row.saldo });
   });
 });
@@ -230,16 +240,16 @@ app.get('/casino/flappy/:userId', checkSaldo, (req, res) => {
 });
 
 // GET-rute for Pikk eller Pung
-app.get('/pikkpung/:userId', checkSaldo, (req, res) => {
+app.get('/pikkpung/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err) {
       console.error("Databasefeil ved henting av saldo (GET pikkpung):", err);
-      return res.status(500).send("Databasefeil");
+      return res.redirect('/?message=Noe gikk galt. Prøv igjen!');
     }
     if (!row) {
       console.error(`Bruker ${userId} ikke funnet ved GET pikkpung.`);
-      return res.send("Fant ikke bruker.");
+      return res.redirect('/?message=Bruker ikke funnet. Registrer deg på nytt!');
     }
     res.render('pikkpung', {
       userId: userId,
@@ -540,6 +550,17 @@ app.post('/final-score', (req, res) => {
       return res.status(500).send("Feil ved lagring av poeng.");
     }
     res.redirect(`/casino/${userId}`);
+  });
+});
+
+// Legg til en rute for å oppdatere eksisterende brukere
+app.get('/update-saldo', (req, res) => {
+  db.run('UPDATE users SET saldo = 1000 WHERE saldo IS NULL', (err) => {
+    if (err) {
+      console.error("Feil ved oppdatering av saldo:", err);
+      return res.send("Feil ved oppdatering av saldo");
+    }
+    res.send("Saldo oppdatert for alle brukere");
   });
 });
 
