@@ -208,7 +208,12 @@ app.get('/casino/reaction/:userId', (req, res) => {
 });
 
 app.get('/casino/flappy/:userId', (req, res) => {
-  res.render('flappy', { userId: req.params.userId });
+  const userId = req.params.userId;
+  // Hent reaction score fra databasen
+  db.get('SELECT reaction FROM scores WHERE user_id = ?', [userId], (err, row) => {
+    const reactionScore = row ? row.reaction : 0; // Bruk score fra DB, ellers 0
+    res.render('flappy', { userId, reactionScore });
+  });
 });
 
 // Coinflip
@@ -283,7 +288,10 @@ app.post('/roulette/:userId', (req, res) => {
 app.post('/reaction-score', (req, res) => {
   console.log("Reaction score body:", req.body);
   const { userId, reactionScore } = req.body;
-  if (!userId || !reactionScore) return res.status(400).send("Mangler data");
+  if (!userId || !reactionScore) {
+     console.error("Mangler data for reaction score:", req.body);
+     return res.status(400).send("Mangler data");
+  }
 
   db.run(
     `INSERT INTO scores (user_id, reaction) VALUES (?, ?)
@@ -291,10 +299,12 @@ app.post('/reaction-score', (req, res) => {
     [userId, reactionScore],
     function (err) {
       if (err) {
-        console.error(err);
+        console.error("Databasefeil ved lagring av reaction score:", err);
         return res.status(500).send("Databasefeil");
       }
-      res.redirect(`/casino/${userId}`);
+      console.log(`Reaction score for user ${userId} saved: ${reactionScore}`);
+
+      res.redirect(`/casino/flappy/${userId}`);
     }
   );
 });
