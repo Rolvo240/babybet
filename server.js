@@ -243,7 +243,7 @@ app.get('/pikkpung/:userId', checkSaldo, (req, res) => {
     }
     res.render('pikkpung', {
       userId: userId,
-      balance: row.saldo || 0, // Sikrer at balance alltid er et tall
+      balance: row.saldo,
       message: null
     });
   });
@@ -252,42 +252,46 @@ app.get('/pikkpung/:userId', checkSaldo, (req, res) => {
 // POST-rute for Pikk eller Pung
 app.post('/pikkpung/:userId', checkSaldo, (req, res) => {
   const userId = req.body.userId;
-  const guess = req.body.guess;
-  
+  const guess = req.body.guess; // enten "pikk" eller "pung"
+
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err || !row) {
       console.error("Databasefeil ved henting av saldo:", err);
       return res.status(500).send("Databasefeil");
     }
 
-    const random = Math.random();
-    let message, newSaldo;
-    
-    if (random < 0.80) {
-      message = "😎 Du vant 100 kr – smooth move, bro";
-      newSaldo = row.saldo - 50 + 100;
-    } else if (random < 0.95) {
-      message = "🎉 Du traff storpikken og vant 1000!";
-      newSaldo = row.saldo - 50 + 1000;
-    } else {
-      message = "💀 Game over. Det ble en full pungsmell";
-      newSaldo = 0;
-    }
+    // 5% sjanse for TOTALTAP
+    const totalLoss = Math.random() < 0.05;
 
-    db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], (err) => {
-      if (err) {
-        console.error("Databasefeil ved oppdatering av saldo:", err);
-        return res.status(500).send("Databasefeil");
-      }
-
-      res.render('pikkpung', {
-        userId: userId,
-        balance: newSaldo,
-        message: message,
-        isBigWin: random < 0.95 && random >= 0.80,
-        isTotalLoss: random >= 0.95
+    if (totalLoss) {
+      const newSaldo = 0;
+      const msg = '💀 FULL PUNGSMELL – du tapte alt!';
+      db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
+        res.render('pikkpung', { 
+          userId, 
+          balance: newSaldo, 
+          message: msg,
+          isTotalLoss: true
+        });
       });
-    });
+    } else {
+      const result = Math.random() < 0.5 ? 'pikk' : 'pung';
+      const win = guess === result;
+
+      const newSaldo = row.saldo - 50 + (win ? 100 : 0);
+      const msg = win
+        ? `🍆 Du traff ${result.toUpperCase()} og vant 100!`
+        : `🥜 Det ble ${result.toUpperCase()}. Du tapte 50.`;
+
+      db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
+        res.render('pikkpung', { 
+          userId, 
+          balance: newSaldo, 
+          message: msg,
+          isWin: win
+        });
+      });
+    }
   });
 });
 
