@@ -30,10 +30,7 @@ db.serialize(() => {
         name TEXT,
         saldo INTEGER DEFAULT 1000,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-        if (err) console.error('Error creating users table:', err);
-        else console.log('Users table created/verified');
-    });
+    )`);
 
     // Bets table
     db.run(`CREATE TABLE IF NOT EXISTS bets (
@@ -42,10 +39,7 @@ db.serialize(() => {
         category TEXT,
         bet TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-        if (err) console.error('Error creating bets table:', err);
-        else console.log('Bets table created/verified');
-    });
+    )`);
 
     // Scores table
     db.run(`CREATE TABLE IF NOT EXISTS scores (
@@ -53,10 +47,7 @@ db.serialize(() => {
         reaction INTEGER,
         flappy INTEGER,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-        if (err) console.error('Error creating scores table:', err);
-        else console.log('Scores table created/verified');
-    });
+    )`);
 
     // Achievements table
     db.run(`CREATE TABLE IF NOT EXISTS achievements (
@@ -65,10 +56,7 @@ db.serialize(() => {
         description TEXT,
         icon TEXT,
         requirement INTEGER
-    )`, (err) => {
-        if (err) console.error('Error creating achievements table:', err);
-        else console.log('Achievements table created/verified');
-    });
+    )`);
 
     // User achievements table
     db.run(`CREATE TABLE IF NOT EXISTS user_achievements (
@@ -76,10 +64,7 @@ db.serialize(() => {
         achievement_id INTEGER,
         earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, achievement_id)
-    )`, (err) => {
-        if (err) console.error('Error creating user_achievements table:', err);
-        else console.log('User achievements table created/verified');
-    });
+    )`);
 
     // Statistics table
     db.run(`CREATE TABLE IF NOT EXISTS statistics (
@@ -89,10 +74,7 @@ db.serialize(() => {
         total_winnings INTEGER DEFAULT 0,
         biggest_win INTEGER DEFAULT 0,
         last_played DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-        if (err) console.error('Error creating statistics table:', err);
-        else console.log('Statistics table created/verified');
-    });
+    )`);
 
     // Insert default achievements
     const defaultAchievements = [
@@ -103,15 +85,11 @@ db.serialize(() => {
         { name: 'Reaction Pro', description: 'Få 50 poeng i Reaction Game', icon: '⚡', requirement: 50 }
     ];
 
-    // Insert achievements one by one
-    defaultAchievements.forEach(achievement => {
-        db.run('INSERT OR IGNORE INTO achievements (name, description, icon, requirement) VALUES (?, ?, ?, ?)',
-            [achievement.name, achievement.description, achievement.icon, achievement.requirement],
-            (err) => {
-                if (err) console.error('Error inserting achievement:', err);
-                else console.log(`Achievement ${achievement.name} inserted/verified`);
-            });
+    const stmt = db.prepare('INSERT OR IGNORE INTO achievements (name, description, icon, requirement) VALUES (?, ?, ?, ?)');
+    defaultAchievements.forEach((a) => {
+        stmt.run(a.name, a.description, a.icon, a.requirement);
     });
+    stmt.finalize();
 });
 
 // Close the database connection
