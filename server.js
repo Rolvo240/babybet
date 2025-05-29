@@ -317,51 +317,55 @@ app.post('/roulette/:userId', (req, res) => {
        return res.send("Fant ikke bruker.");
     }
 
-    let betAmount = 50;
+    let betAmount = 50; // Standard bet
     let winMultiplier = 2; // Standard for rød/grønn
     let winChance = 0.5; // 50% for rød/grønn
+    let betDescription = betType.toUpperCase();
 
     if (betType === 'full_mur') {
       betAmount = 500;
       winMultiplier = 100; // 100x gevinst
       winChance = 0.05; // 5% sjanse
+      betDescription = 'FULL MUR';
     }
 
     if (row.saldo < betAmount) {
-        const msg = `Du er blakk 💀 (Trenger ${betAmount} 🪙)`;
+        const msg = `Du er blakk 💀 (Trenger ${betAmount} 🪙 for ${betDescription})`; // Oppdatert melding
+        // Viktig: Sender gjeldende saldo tilbake
         return res.render('roulette', { userId: userId, balance: row.saldo, message: msg });
     }
 
-    const outcome = Math.random() < winChance ? 'win' : 'lose'; // Bestem utfall basert på sjanse
-    const win = outcome === 'win';
+    const outcome = Math.random(); // Generer et tilfeldig tall
+    const win = outcome < winChance; // Sjekk om vi vinner basert på sjanse
 
     const winAmount = win ? betAmount * winMultiplier : 0;
     const newSaldo = row.saldo - betAmount + winAmount;
 
     let msg = '';
     if (betType === 'full_mur') {
-        msg = win ? `🧱 FULL MUR! Du vant ${winAmount}!` : `😢 Muren holdt ikke. Du tapte ${betAmount}.`;
+        msg = win ? `🧱 FULL MUR! Du vant ${winAmount}!` : `💀 FULL MUR feilet. Du tapte ${betAmount}.`; // Oppdaterte meldinger
     } else {
-        msg = win ? `🎉 Du traff ${betType.toUpperCase()} og vant ${winAmount}!` : `😢 Det ble ${outcome === 'win' ? betType.toUpperCase() : (betType === 'red' ? 'green' : 'red').toUpperCase()}. Du tapte ${betAmount}.`;
+        const actualOutcomeColor = outcome < 0.5 ? 'RED' : 'GREEN'; // Bestem hvilken farge som VANT for rød/grønn
+        msg = win ? `🎉 Du traff ${betDescription} og vant ${winAmount}!` : `😢 Det ble ${actualOutcomeColor}. Du tapte ${betAmount}.`; // Oppdaterte meldinger
     }
 
 
     db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], function(err) {
       if (err) {
         console.error("Databasefeil ved oppdatering av saldo (POST roulette):", err);
+        // Ved feil, render siden på nytt med gjeldende saldo og feilmelding
         return res.render('roulette', { userId: userId, balance: row.saldo, message: "Databasefeil ved saldo-oppdatering" });
       }
       console.log(`Saldo for user ${userId} oppdatert til ${newSaldo} etter roulette bet (${betType}).`);
 
       if (win) {
-         // Oppdater statistikk og achievements ved behov
-         updateStatistics(userId, winAmount);
-         checkAchievements(userId);
+         updateStatistics(userId, winAmount); // Oppdater statistikk ved gevinst
+         checkAchievements(userId); // Sjekk achievements ved gevinst
       } else {
          updateLossStatistics(userId); // Oppdater tap-statistikk
       }
 
-
+      // Render siden på nytt med oppdatert saldo og resultatmelding
       res.render('roulette', {
         userId: userId,
         balance: newSaldo, // Sender den NYE saldoen
