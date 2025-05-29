@@ -35,9 +35,11 @@
 
     let triggered = false;
     let startTime;
+    let userId = "<%= userId %>";
 
     startBtn.onclick = () => {
       startBtn.disabled = true;
+      baby.classList.remove("active");
       const delay = Math.random() * 3000 + 1000;
 
       setTimeout(() => {
@@ -49,10 +51,23 @@
 
     document.body.addEventListener("click", () => {
       if (triggered) {
-        const time = Date.now() - startTime;
-        reactionInput.value = time;
-        form.submit();
+        const reactionTime = Date.now() - startTime;
         triggered = false;
+
+        let reactionScore;
+        if (reactionTime < 150) {
+          reactionScore = 100;
+        } else if (reactionTime < 250) {
+          reactionScore = 80;
+        } else if (reactionTime < 400) {
+          reactionScore = 50;
+        } else {
+          reactionScore = 20;
+        }
+
+        console.log("Reaction Time:", reactionTime, "ms, Score:", reactionScore);
+
+        window.location.href = `/casino/flappy/${userId}?reactionScore=${reactionScore}`;
       }
     });
   </script>

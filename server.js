@@ -209,11 +209,17 @@ app.get('/casino/reaction/:userId', (req, res) => {
 
 app.get('/casino/flappy/:userId', (req, res) => {
   const userId = req.params.userId;
-  // Hent reaction score fra databasen
-  db.get('SELECT reaction FROM scores WHERE user_id = ?', [userId], (err, row) => {
-    const reactionScore = row ? row.reaction : 0; // Bruk score fra DB, ellers 0
-    res.render('flappy', { userId, reactionScore });
-  });
+  // Hent reaction score fra query parameter (sendt fra reaction game)
+  const reactionScore = req.query.reactionScore ? parseInt(req.query.reactionScore, 10) : 0;
+
+  // Du kan evt hente eksisterende flappy score fra DB her hvis du vil vise den før spill,
+  // men for nå sender vi bare reactionScore videre.
+  // db.get('SELECT flappy FROM scores WHERE user_id = ?', [userId], (err, row) => {
+  //   const existingFlappyScore = row ? row.flappy : 0;
+  //   res.render('flappy', { userId, reactionScore, existingFlappyScore });
+  // });
+
+  res.render('flappy', { userId, reactionScore }); // Send reactionScore videre til flappy.ejs
 });
 
 // Coinflip
@@ -375,29 +381,18 @@ app.post('/roulette/:userId', (req, res) => {
   });
 });
 
-// Reaction score
+// Reaction score (endret til å kun redirect, lagring skjer i /final-score)
 app.post('/reaction-score', (req, res) => {
-  console.log("Reaction score body:", req.body);
-  const { userId, reactionScore } = req.body;
-  if (!userId || !reactionScore) {
-     console.error("Mangler data for reaction score:", req.body);
+  // Denne ruten skal strengt tatt ikke kalles lenger med den nye JS-en i reaction.ejs
+  // Hvis den kalles, betyr det at skjema-submit feilet eller ble brukt.
+  console.warn("POST /reaction-score ble kalt. Dette burde ikke skje med ny JS.");
+  const { userId, reactionScore } = req.body; // Henter score fra den gamle formen
+   if (!userId || reactionScore === undefined) {
+     console.error("Mangler data i POST /reaction-score:", req.body);
      return res.status(400).send("Mangler data");
   }
-
-  db.run(
-    `INSERT INTO scores (user_id, reaction) VALUES (?, ?)
-     ON CONFLICT(user_id) DO UPDATE SET reaction=excluded.reaction`,
-    [userId, reactionScore],
-    function (err) {
-      if (err) {
-        console.error("Databasefeil ved lagring av reaction score:", err);
-        return res.status(500).send("Databasefeil");
-      }
-      console.log(`Reaction score for user ${userId} saved: ${reactionScore}`);
-
-      res.redirect(`/casino/flappy/${userId}`);
-    }
-  );
+  // Redirect til Flappy uansett, med scoren
+   res.redirect(`/casino/flappy/${userId}?reactionScore=${reactionScore}`);
 });
 
 // Admin
@@ -526,22 +521,47 @@ app.get('/profile/:userId', (req, res) => {
   });
 });
 
-// Final score
+// Final score (lagrer NÅ både reaction og flappy)
 app.post('/final-score', (req, res) => {
   console.log("Final score body:", req.body);
-  const { userId, flappy } = req.body;
-  if (!userId || !flappy) return res.status(400).send("Mangler data");
+  // Henter både userId, reactionScore (fra hidden input i flappy.ejs) og flappy (total score)
+  const { userId, reaction: reactionScore, flappy: flappyScore } = req.body; // Merk navnene må matche hidden input
+  if (!userId || reactionScore === undefined || flappyScore === undefined) {
+    console.error("Mangler data i POST /final-score:", req.body);
+    return res.status(400).send("Mangler alle scorer");
+  }
 
+  // Konverter til tall
+  const reaction = parseInt(reactionScore, 10);
+  const flappy = parseInt(flappyScore, 10);
+
+   if (isNaN(reaction) || isNaN(flappy)) {
+       console.error("Ugyldige scorer i POST /final-score:", req.body);
+       return res.status(400).send("Ugyldige scorer");
+   }
+
+
+  // Lagre/oppdater begge scorer i scores-tabellen
+  // Bruker INSERT OR IGNORE og deretter UPDATE for å håndtere eksisterende brukere
   db.run(
-    `INSERT INTO scores (user_id, flappy) VALUES (?, ?)
-     ON CONFLICT(user_id) DO UPDATE SET flappy=excluded.flappy`,
-    [userId, flappy],
+    `INSERT INTO scores (user_id, reaction, flappy) VALUES (?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+     reaction = excluded.reaction,
+     flappy = excluded.flappy,
+     updated_at = CURRENT_TIMESTAMP`, // Oppdater timestamp
+    [userId, reaction, flappy],
     function (err) {
       if (err) {
-        console.error(err);
-        return res.status(500).send("Databasefeil");
+        console.error("Databasefeil ved lagring av final score:", err);
+        return res.status(500).send("Databasefeil ved lagring av score");
       }
-      res.redirect(`/casino/${userId}`);
+      console.log(`Final scores for user ${userId} saved: Reaction=${reaction}, Flappy=${flappy}`);
+
+      // Du kan nå redirecte til casino hovedsiden eller en "score" side
+      // Hvis du har en score.ejs side:
+      // res.render('score', { userId, total: reaction + flappy }); // Må sende total
+      // Eller tilbake til casino:
+      res.redirect(`/casino/${userId}`); // Denne ruten vil hente ny saldo og vise
     }
   );
 });
