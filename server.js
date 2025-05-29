@@ -222,19 +222,19 @@ app.get('/casino/flappy/:userId', (req, res) => {
   res.render('flappy', { userId, reactionScore }); // Send reactionScore videre til flappy.ejs
 });
 
-// Coinflip
-app.get('/coinflip/:userId', (req, res) => {
+// Pikk eller Pung
+app.get('/pikkpung/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err) {
-        console.error("Databasefeil ved henting av saldo (GET coinflip):", err);
+        console.error("Databasefeil ved henting av saldo (GET pikkpung):", err);
         return res.status(500).send("Databasefeil");
     }
     if (!row) {
-        console.error(`Bruker ${userId} ikke funnet ved GET coinflip.`);
+        console.error(`Bruker ${userId} ikke funnet ved GET pikkpung.`);
         return res.send("Fant ikke bruker.");
     }
-    res.render('coinflip', {
+    res.render('pikkpung', {
       userId: userId,
       balance: row.saldo,
       message: null
@@ -242,25 +242,25 @@ app.get('/coinflip/:userId', (req, res) => {
   });
 });
 
-app.post('/coinflip/:userId', (req, res) => {
-  console.log("Coinflip body:", req.body);
+app.post('/pikkpung/:userId', (req, res) => {
+  console.log("Pikk eller Pung body:", req.body);
   const userId = req.body.userId;
   const guess = req.body.guess;
-  const result = Math.random() < 0.5 ? 'keeg' : 'ikke';
+  const result = Math.random() < 0.5 ? 'pikk' : 'pung';
   const win = guess === result;
 
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err) {
-      console.error("Databasefeil ved henting av saldo (POST coinflip):", err);
+      console.error("Databasefeil ved henting av saldo (POST pikkpung):", err);
       return res.status(500).send("Databasefeil");
     }
      if (!row) {
-       console.error(`Bruker ${userId} ikke funnet ved POST coinflip.`);
+       console.error(`Bruker ${userId} ikke funnet ved POST pikkpung.`);
        return res.send("Fant ikke bruker.");
     }
     if (row.saldo < 50) {
         const msg = "Du er blakk 💀";
-        return res.render('coinflip', { userId: userId, balance: row.saldo, message: msg });
+        return res.render('pikkpung', { userId: userId, balance: row.saldo, message: msg });
     }
 
     const newSaldo = row.saldo - 50 + (win ? 120 : 0);
@@ -270,16 +270,16 @@ app.post('/coinflip/:userId', (req, res) => {
 
     db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], function(err) {
       if (err) {
-        console.error("Databasefeil ved oppdatering av saldo (POST coinflip):", err);
-        return res.render('coinflip', { userId: userId, balance: row.saldo, message: "Databasefeil ved saldo-oppdatering" });
+        console.error("Databasefeil ved oppdatering av saldo (POST pikkpung):", err);
+        return res.render('pikkpung', { userId: userId, balance: row.saldo, message: "Databasefeil ved saldo-oppdatering" });
       }
-      console.log(`Saldo for user ${userId} oppdatert til ${newSaldo} etter coinflip.`);
+      console.log(`Saldo for user ${userId} oppdatert til ${newSaldo} etter pikkpung.`);
 
       if (win) {
         updateStatistics(userId, 120);
         checkAchievements(userId);
       }
-      res.render('coinflip', {
+      res.render('pikkpung', {
         userId: userId,
         balance: newSaldo,
         message: msg
@@ -523,47 +523,17 @@ app.get('/profile/:userId', (req, res) => {
 
 // Final score (lagrer NÅ både reaction og flappy)
 app.post('/final-score', (req, res) => {
-  console.log("Final score body:", req.body);
-  // Henter både userId, reactionScore (fra hidden input i flappy.ejs) og flappy (total score)
-  const { userId, reaction: reactionScore, flappy: flappyScore } = req.body; // Merk navnene må matche hidden input
-  if (!userId || reactionScore === undefined || flappyScore === undefined) {
-    console.error("Mangler data i POST /final-score:", req.body);
-    return res.status(400).send("Mangler alle scorer");
-  }
+  const userId = req.body.userId;
+  const reactionScore = parseInt(req.body.reaction, 10);
+  const flappyScore = parseInt(req.body.flappy, 10);
 
-  // Konverter til tall
-  const reaction = parseInt(reactionScore, 10);
-  const flappy = parseInt(flappyScore, 10);
-
-   if (isNaN(reaction) || isNaN(flappy)) {
-       console.error("Ugyldige scorer i POST /final-score:", req.body);
-       return res.status(400).send("Ugyldige scorer");
-   }
-
-
-  // Lagre/oppdater begge scorer i scores-tabellen
-  // Bruker INSERT OR IGNORE og deretter UPDATE for å håndtere eksisterende brukere
-  db.run(
-    `INSERT INTO scores (user_id, reaction, flappy) VALUES (?, ?, ?)
-     ON CONFLICT(user_id) DO UPDATE SET
-     reaction = excluded.reaction,
-     flappy = excluded.flappy,
-     updated_at = CURRENT_TIMESTAMP`, // Oppdater timestamp
-    [userId, reaction, flappy],
-    function (err) {
-      if (err) {
-        console.error("Databasefeil ved lagring av final score:", err);
-        return res.status(500).send("Databasefeil ved lagring av score");
-      }
-      console.log(`Final scores for user ${userId} saved: Reaction=${reaction}, Flappy=${flappy}`);
-
-      // Du kan nå redirecte til casino hovedsiden eller en "score" side
-      // Hvis du har en score.ejs side:
-      // res.render('score', { userId, total: reaction + flappy }); // Må sende total
-      // Eller tilbake til casino:
-      res.redirect(`/casino/${userId}`); // Denne ruten vil hente ny saldo og vise
+  db.run('INSERT OR REPLACE INTO scores (user_id, reaction, flappy) VALUES (?, ?, ?)', [userId, reactionScore, flappyScore], (err) => {
+    if (err) {
+      console.error("Feil ved lagring av poeng:", err);
+      return res.status(500).send("Feil ved lagring av poeng.");
     }
-  );
+    res.redirect(`/casino/${userId}`);
+  });
 });
 
 // Start server
