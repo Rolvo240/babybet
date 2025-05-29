@@ -83,7 +83,7 @@
     </div>
 
     <% if (message) { %>
-      <div class="message bg-white/10 backdrop-blur-lg rounded-xl p-4 mb-8 text-center text-xl <%= message.includes('vant') ? 'win-message' : '' %>">
+      <div class="message bg-white/10 backdrop-blur-lg rounded-xl p-4 mb-8 text-center text-xl <%= typeof message === 'string' && message.includes('vant') ? 'win-message' : '' %>">
         <%= message %>
       </div>
     <% } %>
@@ -142,7 +142,7 @@
     }
 
     // Trigger confetti if there's a win message
-    <% if (message && message.includes('vant')) { %>
+    <% if (typeof message === 'string' && message.includes('vant')) { %>
       confetti({
         particleCount: 100,
         spread: 70,
