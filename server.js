@@ -54,15 +54,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Bets table
-    db.run(`CREATE TABLE IF NOT EXISTS bets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        category TEXT,
-        bet TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
     // Scores table
     db.run(`CREATE TABLE IF NOT EXISTS scores (
         user_id INTEGER PRIMARY KEY,
@@ -144,57 +135,8 @@ app.post('/register', (req, res) => {
       console.error("Feil ved registrering:", err);
       return res.send("Feil ved registrering");
     }
-    res.redirect(`/start/${this.lastID}`);
+    res.redirect(`/casino/${this.lastID}`);
   });
-});
-
-// Startvalg
-app.get('/start/:userId', (req, res) => {
-  res.render('start', { userId: req.params.userId });
-});
-
-// Betting
-app.get('/bet/:userId', (req, res) => {
-  const userId = req.params.userId;
-  const now = new Date();
-  const expired = now > deadline;
-
-  db.all(`SELECT category, bet FROM bets`, (err, rows) => {
-    if (err) return res.send('Feil ved henting av data');
-
-    const weightBets = rows.filter(r => r.category === 'weight').map(r => r.bet);
-    const dateBets = rows.filter(r => r.category === 'birthdate').map(r => r.bet);
-
-    const calcOdds = (arr) => {
-      const counts = {};
-      arr.forEach(val => counts[val] = (counts[val] || 0) + 1);
-      const total = arr.length;
-      return Object.entries(counts).map(([value, count]) => {
-        const raw = 1 / (count / total);
-        return { value, odds: raw.toFixed(2) };
-      }).sort((a, b) => b.odds - a.odds).slice(0, 5);
-    };
-
-    const weightOdds = calcOdds(weightBets);
-    const dateOdds = calcOdds(dateBets);
-
-    res.render('bet', { userId, expired, weightOdds, dateOdds });
-  });
-});
-
-app.post('/bet/:userId', (req, res) => {
-  const now = new Date();
-  if (now > deadline) return res.send("Tipping er stengt. Du er for sein, kompis!");
-
-  const userId = req.params.userId;
-  const { weight, birthdate, hair } = req.body;
-
-  db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'weight', weight]);
-  db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'birthdate', birthdate]);
-  db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'hair', hair]);
-  db.run('INSERT INTO bets (user_id, category, bet) VALUES (?, ?, ?)', [userId, 'truls_keeg', 'Ja']);
-
-  res.redirect(`/casino/${userId}`);
 });
 
 // Casino

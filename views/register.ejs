@@ -1,144 +1,21 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BabyBet - Registrering</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <style>
-    @keyframes gradient {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
+<%- include('layout', { title: 'Casino - Registrering' }) %>
 
-    @keyframes float {
-      0% { transform: translateY(100vh); }
-      100% { transform: translateY(-100px); }
-    }
-
-    @keyframes blink {
-      0% { opacity: 0; }
-      50% { opacity: 1; }
-      100% { opacity: 0; }
-    }
-
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      75% { transform: translateX(5px); }
-    }
-
-    .gradient-bg {
-      background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-      background-size: 400% 400%;
-      animation: gradient 15s ease infinite;
-    }
-
-    .floating-baby {
-      position: fixed;
-      font-size: 2rem;
-      animation: float 8s linear infinite;
-      opacity: 0.6;
-    }
-
-    .crosshair {
-      position: fixed;
-      font-size: 2rem;
-      animation: blink 1s ease-in-out;
-      pointer-events: none;
-    }
-
-    .mmg-plakat {
-      animation: shake 0.5s ease-in-out infinite;
-    }
-
-    .glass-card {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-  </style>
-</head>
-<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
-  <!-- Tilfeldige baby-emojis -->
-  <div id="babyContainer"></div>
-
-  <!-- Hovedkort -->
-  <div class="glass-card rounded-2xl p-8 max-w-md w-full transform transition-all duration-300">
-    <h1 class="text-4xl font-bold text-center mb-2 text-white">BabyBet 🍼</h1>
-    <p class="text-center text-gray-200 mb-8 font-['Press_Start_2P'] text-sm">
-      Golf. Baby. Betting. Hva mer trenger du?
-    </p>
-
-    <form method="POST" action="/register" class="space-y-4">
+<div class="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+  <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96">
+    <h1 class="text-3xl font-bold mb-6 text-center">🎰 Velkommen til Casino! 🎰</h1>
+    
+    <form action="/register" method="POST" class="space-y-4">
       <div>
-        <input type="text" name="name" required
-               class="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-white/40"
-               placeholder="Ditt navn">
+        <label for="name" class="block text-sm font-medium mb-2">Ditt navn</label>
+        <input type="text" id="name" name="name" required
+          class="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          placeholder="Skriv inn navnet ditt">
       </div>
-      <button type="submit"
-              class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-6 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105">
-        Registrer deg og begynn å tippe 🎯
+      
+      <button type="submit" 
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+        Start Spill 🎲
       </button>
     </form>
-
-    <!-- MMG Plakat -->
-    <div class="mt-8 p-4 bg-yellow-500/20 rounded-lg text-center mmg-plakat">
-      <p class="font-['Press_Start_2P'] text-yellow-400 text-sm">SPONSORED BY MMG</p>
-    </div>
   </div>
-
-  <!-- Lyd -->
-  <audio id="registerSound" src="https://assets.mixkit.co/sfx/preview/mixkit-coin-win-notification-1992.mp3"></audio>
-
-  <script>
-    // Funksjon for å lage tilfeldige baby-emojis
-    function createFloatingBaby() {
-      const baby = document.createElement('div');
-      baby.textContent = '';
-      baby.className = 'floating-baby';
-      baby.style.left = Math.random() * 100 + 'vw';
-      document.getElementById('babyContainer').appendChild(baby);
-      
-      // Fjern baby etter animasjonen er ferdig
-      setTimeout(() => baby.remove(), 8000);
-    }
-
-    // Funksjon for å vise crosshair
-    function showCrosshair() {
-      const crosshair = document.createElement('div');
-      crosshair.textContent = '🎯';
-      crosshair.className = 'crosshair';
-      crosshair.style.left = Math.random() * 100 + 'vw';
-      crosshair.style.top = Math.random() * 100 + 'vh';
-      document.body.appendChild(crosshair);
-      
-      // Fjern crosshair etter animasjonen er ferdig
-      setTimeout(() => crosshair.remove(), 1000);
-    }
-
-    // Start med noen baby-emojis
-    for(let i = 0; i < 5; i++) {
-      setTimeout(createFloatingBaby, i * 2000);
-    }
-
-    // Fortsett å lage nye baby-emojis
-    setInterval(createFloatingBaby, 8000);
-
-    // Vis crosshair tilfeldig
-    setInterval(showCrosshair, Math.random() * 5000 + 10000);
-
-    // Håndter registrering
-    document.querySelector('form').addEventListener('submit', (e) => {
-      const sound = document.getElementById('registerSound');
-      sound.play();
-      
-      const card = document.querySelector('.glass-card');
-      card.style.animation = 'shake 0.5s';
-      setTimeout(() => card.style.animation = '', 500);
-    });
-  </script>
-</body>
-</html>
+</div>
