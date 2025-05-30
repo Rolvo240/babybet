@@ -94,7 +94,7 @@ db.serialize(() => {
         { name: 'Første Seier', description: 'Vinn ditt første spill', icon: '🏆', requirement: 1 },
         { name: 'Høy Ruller', description: 'Vinn 1000 poeng', icon: '💰', requirement: 1000 },
         { name: 'Casino Kong', description: 'Vinn 10 spill', icon: '👑', requirement: 10 },
-        { name: 'Flappy Master', description: 'Få 100 poeng i Flappy Baby', icon: '🍼', requirement: 100 },
+        { name: 'SkyHopper Master', description: 'Få 100 poeng i SkyHopper', icon: '🍼', requirement: 100 },
         { name: 'Reaction Pro', description: 'Få 50 poeng i Reaction Game', icon: '⚡', requirement: 50 }
     ];
 
@@ -151,7 +151,11 @@ app.get('/casino/:userId', (req, res) => {
       console.error(`Bruker ${userId} ikke funnet.`);
       return res.redirect('/?message=Bruker ikke funnet. Registrer deg på nytt!');
     }
-    res.render('casino', { userId, saldo: row.saldo });
+    res.render('casino', {
+      userId,
+      saldo: row.saldo,
+      style: ''
+    });
   });
 });
 
@@ -175,36 +179,45 @@ app.get('/casino/reaction/:userId', checkSaldo, (req, res) => {
   res.render('reaction', { userId: req.params.userId });
 });
 
-app.get('/casino/flappy/:userId', checkSaldo, (req, res) => {
+app.get('/casino/skyhopper/:userId', checkSaldo, (req, res) => {
   const userId = req.params.userId;
   const reactionScore = req.query.reactionScore ? parseInt(req.query.reactionScore, 10) : 0;
-  res.render('flappy', { userId, reactionScore });
+  const reactionTime = req.query.reactionTime ? parseInt(req.query.reactionTime, 10) : null;
+  const reactionComment = req.query.reactionComment || '';
+
+  res.render('flappy', {
+    userId,
+    reactionScore,
+    reactionTime,
+    reactionComment
+  });
 });
 
-// GET-rute for Pikk eller Pung
-app.get('/pikkpung/:userId', (req, res) => {
+// GET-rute for Gull eller Stein
+app.get('/gullstein/:userId', (req, res) => {
   const userId = req.params.userId;
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err) {
-      console.error("Databasefeil ved henting av saldo (GET pikkpung):", err);
+      console.error("Databasefeil ved henting av saldo (GET gullstein):", err);
       return res.redirect('/?message=Noe gikk galt. Prøv igjen!');
     }
     if (!row) {
-      console.error(`Bruker ${userId} ikke funnet ved GET pikkpung.`);
+      console.error(`Bruker ${userId} ikke funnet ved GET gullstein.`);
       return res.redirect('/?message=Bruker ikke funnet. Registrer deg på nytt!');
     }
     res.render('pikkpung', {
       userId: userId,
       balance: row.saldo,
-      message: null
+      message: null,
+      style: ''
     });
   });
 });
 
-// POST-rute for Pikk eller Pung
-app.post('/pikkpung/:userId', checkSaldo, (req, res) => {
+// POST-rute for Gull eller Stein
+app.post('/gullstein/:userId', checkSaldo, (req, res) => {
   const userId = req.body.userId;
-  const guess = req.body.guess; // enten "pikk" eller "pung"
+  const guess = req.body.guess; // enten "gull" eller "stein"
 
   db.get('SELECT saldo FROM users WHERE id = ?', [userId], (err, row) => {
     if (err || !row) {
@@ -217,7 +230,7 @@ app.post('/pikkpung/:userId', checkSaldo, (req, res) => {
 
     if (totalLoss) {
       const newSaldo = 0;
-      const msg = '💀 FULL PUNGSMELL – du tapte alt!';
+      const msg = '💀 TOTALT TAP – du tapte alt!';
       db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
         res.render('pikkpung', { 
           userId, 
@@ -227,13 +240,13 @@ app.post('/pikkpung/:userId', checkSaldo, (req, res) => {
         });
       });
     } else {
-      const result = Math.random() < 0.5 ? 'pikk' : 'pung';
+      const result = Math.random() < 0.5 ? 'gull' : 'stein';
       const win = guess === result;
 
       const newSaldo = row.saldo - 50 + (win ? 100 : 0);
       const msg = win
-        ? `🍆 Du traff ${result.toUpperCase()} og vant 100!`
-        : `🥜 Det ble ${result.toUpperCase()}. Du tapte 50.`;
+        ? `💰 Du traff ${result.toUpperCase()} og vant 100!`
+        : `⛏️ Det ble ${result.toUpperCase()}. Du tapte 50.`;
 
       db.run('UPDATE users SET saldo = ? WHERE id = ?', [newSaldo, userId], () => {
         res.render('pikkpung', { 
@@ -359,29 +372,28 @@ app.get('/admin', (req, res) => {
   const pass = req.query.pass;
   if (pass !== adminPassword) return res.send("⛔ Du har ikke tilgang, kompis.");
 
-  db.all('SELECT users.id, users.name, bets.category, bets.bet FROM users JOIN bets ON users.id = bets.user_id', (err, betRows) => {
-    if (err) return res.send('Feil ved henting av bets');
+  db.all('SELECT u.id, u.name, s.reaction, s.flappy, stat.games_played, stat.games_won, stat.total_winnings, stat.biggest_win FROM users u LEFT JOIN scores s ON u.id = s.user_id LEFT JOIN statistics stat ON u.id = stat.user_id', (err2, userData) => {
+      if (err2) {
+          console.error("Feil ved henting av admin data:", err2);
+          return res.send('Feil ved henting av data');
+      }
 
-    db.all('SELECT * FROM scores', (err2, scoreRows) => {
-      if (err2) return res.send('Feil ved henting av score');
+      const adminData = userData.map(row => ({
+          id: row.id,
+          name: row.name,
+          reaction: row.reaction,
+          flappy: row.flappy,
+          total_score: (row.reaction || 0) + (row.flappy || 0),
+          stats: {
+              games_played: row.games_played || 0,
+              games_won: row.games_won || 0,
+              total_winnings: row.total_winnings || 0,
+              biggest_win: row.biggest_win || 0
+          }
+      }));
 
-      const grouped = {};
-      betRows.forEach(row => {
-        if (!grouped[row.id]) grouped[row.id] = { name: row.name, bets: [] };
-        grouped[row.id].bets.push({ category: row.category, bet: row.bet });
-      });
-
-      scoreRows.forEach(score => {
-        if (grouped[score.user_id]) {
-          grouped[score.user_id].reaction = score.reaction;
-          grouped[score.user_id].flappy = score.flappy;
-          grouped[score.user_id].total = score.reaction + score.flappy;
-        }
-      });
-
-      res.render('admin', { data: Object.values(grouped) });
+      res.render('admin', { data: adminData });
     });
-  });
 });
 
 // Leaderboard
@@ -397,9 +409,13 @@ app.get('/leaderboard', (req, res) => {
 // Reset
 app.get('/reset/:userId', (req, res) => {
   const userId = req.params.userId;
-  db.run('DELETE FROM bets WHERE user_id = ?', userId);
-  db.run('DELETE FROM scores WHERE user_id = ?', userId);
-  res.send('Dine bets og score er slettet.');
+  db.run('DELETE FROM scores WHERE user_id = ?', userId, (err1) => {
+      if (err1) console.error("Feil ved sletting av scores:", err1);
+      db.run('DELETE FROM statistics WHERE user_id = ?', userId, (err2) => {
+          if (err2) console.error("Feil ved sletting av stats:", err2);
+          res.send('Dine score og statistikk er slettet.');
+      });
+  });
 });
 
 // Oppdater statistikk når en bruker vinner

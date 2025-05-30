@@ -1,75 +1,118 @@
-<!DOCTYPE html>
-<html lang="no">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reaction Game</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .baby {
-      font-size: 5rem;
-      transition: transform 0.3s ease;
-    }
-    .baby.active {
-      transform: scale(1.4) translateX(100px);
-    }
-  </style>
-</head>
-<body class="bg-gradient-to-br from-green-100 to-blue-200 flex flex-col items-center justify-center min-h-screen text-center">
+<%- include('layout', { title: 'CasinoX - Reaction Game' }) %>
+
+<style>
+  .baby {
+    font-size: 5rem;
+    transition: transform 0.3s ease;
+  }
+  .baby.active {
+    transform: scale(1.4) translateX(100px);
+  }
+  .feedback-message {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-top: 1rem;
+    min-height: 1.5em; /* Reserve space to prevent layout shift */
+  }
+  .emoji {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+</style>
+
+<div class="bg-gradient-to-br from-green-100 to-blue-200 flex flex-col items-center justify-center min-h-screen text-center">
   <h1 class="text-2xl font-bold mb-4">👶 Reaction Game</h1>
   <p class="text-gray-700 mb-4">Trykk NÅR babyen beveger seg!</p>
   <div id="baby" class="baby">👶</div>
 
-  <form id="reactionForm" method="POST" action="/reaction-score">
+  <div id="feedback" class="feedback-message text-gray-800"></div>
+  <div id="emoji" class="emoji"></div>
+
+  <form id="reactionForm" method="POST" action="/reaction-score" style="display:none;">
     <input type="hidden" name="userId" value="<%= userId %>">
-    <input type="hidden" name="reactionScore" id="reactionScore">
+    <input type="hidden" name="reactionScore" id="reactionScoreInput">
   </form>
 
   <button id="startBtn" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded">Start</button>
+</div>
 
-  <script>
-    const baby = document.getElementById('baby');
-    const startBtn = document.getElementById('startBtn');
-    const reactionInput = document.getElementById('reactionScore');
-    const form = document.getElementById('reactionForm');
+<script>
+  const baby = document.getElementById('baby');
+  const startBtn = document.getElementById('startBtn');
+  const feedbackDiv = document.getElementById('feedback');
+  const emojiDiv = document.getElementById('emoji');
+  const form = document.getElementById('reactionForm');
 
-    let triggered = false;
-    let startTime;
-    let userId = "<%= userId %>";
+  let triggered = false;
+  let startTime;
+  let userId = "<%= userId %>";
 
-    startBtn.onclick = () => {
-      startBtn.disabled = true;
-      baby.classList.remove("active");
+  startBtn.onclick = () => {
+    startBtn.disabled = true;
+    baby.classList.remove("active");
+    feedbackDiv.textContent = ''; // Clear previous feedback
+    emojiDiv.textContent = ''; // Clear previous emoji
+
+    // Legg til en liten forsinkelse før start av spillet for å unngå umiddelbar reaksjon
+    setTimeout(() => {
       const delay = Math.random() * 3000 + 1000;
 
       setTimeout(() => {
         baby.classList.add("active");
         startTime = Date.now();
         triggered = true;
+        // Eventuelt spill en startlyd her
       }, delay);
-    };
+    }, 500); // Kort forsinkelse før selve spillet starter
+  };
 
-    document.body.addEventListener("click", () => {
-      if (triggered) {
-        const reactionTime = Date.now() - startTime;
-        triggered = false;
+  document.body.addEventListener("click", () => {
+    if (triggered) {
+      const reactionTime = Date.now() - startTime;
+      triggered = false;
+      baby.classList.remove("active"); // Reset baby position
 
-        let reactionScore;
-        if (reactionTime < 150) {
-          reactionScore = 100;
-        } else if (reactionTime < 250) {
-          reactionScore = 80;
-        } else if (reactionTime < 400) {
-          reactionScore = 50;
-        } else {
-          reactionScore = 20;
-        }
+      let reactionScore;
+      let feedbackComment;
+      let feedbackEmoji;
 
-        console.log("Reaction Time:", reactionTime, "ms, Score:", reactionScore);
-
-        window.location.href = `/casino/flappy/${userId}?reactionScore=${reactionScore}`;
+      if (reactionTime < 150) {
+        reactionScore = 100;
+        feedbackComment = "Lynrask respons!";
+        feedbackEmoji = '⚡';
+      } else if (reactionTime < 250) {
+        reactionScore = 80;
+        feedbackComment = "Skarp reaksjon";
+        feedbackEmoji = '🔥';
+      } else if (reactionTime < 400) {
+        reactionScore = 50;
+        feedbackComment = "Greit nok!";
+        feedbackEmoji = '🧠';
+      } else {
+        reactionScore = 20;
+        feedbackComment = "Litt sent – prøv igjen!";
+        feedbackEmoji = '⏳';
       }
-    });
-  </script>
-</body>
-</html>
+
+      let feedbackMessage = `Din reaksjonstid: ${reactionTime} ms\nVurdering: ${feedbackComment}`;
+      feedbackDiv.textContent = feedbackMessage;
+      emojiDiv.textContent = feedbackEmoji;
+
+      console.log("Reaction Time:", reactionTime, "ms, Score:", reactionScore, "Comment:", feedbackComment);
+
+      setTimeout(() => {
+         window.location.href = `/casino/skyhopper/${userId}?reactionScore=${reactionScore}&reactionTime=${reactionTime}&reactionComment=${encodeURIComponent(feedbackComment)}`;
+      }, 2000);
+    } else {
+        feedbackDiv.textContent = "❌ For tidlig! Klikk etter babyen beveger seg.";
+        emojiDiv.textContent = "😠";
+        startBtn.disabled = false;
+        baby.classList.remove("active");
+    }
+  });
+
+  // Optional: Add sound effects
+  // const clickSound = new Audio('path/to/click.mp3');
+  // const startSound = new Audio('path/to/start.mp3');
+
+</script>
