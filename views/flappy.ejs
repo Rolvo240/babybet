@@ -26,19 +26,33 @@
     <input type="hidden" name="flappy" id="flappyInput" />
   </form>
 
+  <!-- HOPP! knapp for mobil -->
+  <button
+    id="jumpBtn"
+    class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-pink-600 text-white font-bold px-6 py-3 rounded-full shadow-lg z-50"
+    onclick="jump()"
+  >
+    �� HOPP!
+  </button>
+
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
     const baby = { x: 50, y: 150, width: 30, height: 30, velocity: 0 };
     const gravity = 0.5;
-    const jump = -8;
+    const jumpVelocity = -8; // Bruker variabel for hoppverdi
     const pipes = [];
     let frame = 0;
     let score = 0;
     let round = 1;
     let flappyTotal = 0;
     let gameOver = false;
+
+    // Ny jump funksjon for knappen
+    function jump() {
+      baby.velocity = jumpVelocity;
+    }
 
     function drawBaby() {
       ctx.fillStyle = "#f87171";
@@ -138,13 +152,15 @@
       }
     }
 
+    // Beholder keydown for desktop
     document.body.addEventListener("keydown", (e) => {
-      if (e.code === "Space") baby.velocity = jump;
+      if (e.code === "Space") jump(); // Bruker jump funksjonen her også
     });
 
-    document.body.addEventListener("click", () => {
-      baby.velocity = jump;
-    });
+    // Fjerner body click event for å unngå zoom/scroll på mobil
+    // document.body.addEventListener("click", () => {
+    //   jump();
+    // });
 
     startRound();
   </script>
