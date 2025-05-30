@@ -111,11 +111,9 @@
       <% if (typeof message !== 'undefined' && message) { %>
         <div class="outcome-icon">
           <% if (message.includes('vant')) { %>
-            ✨
-          <% } else if (message.includes('tapte') || message.includes('TOTALT TAP')) {
-            🌑
+            <%= "✨" %>
           <% } else { %>
-             🪙
+            <%= message.includes('tapte') || message.includes('TOTALT TAP') ? "🌑" : "🪙" %>
           <% } %>
         </div>
       <% } else { %>
