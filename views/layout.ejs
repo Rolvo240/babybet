@@ -29,7 +29,6 @@
       border: 1px solid rgba(255, 255, 255, 0.05);
     }
   </style>
-  <%- typeof style !== 'undefined' ? style : '' %>
 </head>
 <body class="theme-transition dark:bg-gray-900 bg-gray-100 dark:text-white text-gray-900 min-h-screen">
   <div class="fixed top-4 right-4 z-50">
@@ -42,8 +41,6 @@
       </svg>
     </button>
   </div>
-
-  <%- body %>
 
   <script>
     // Theme toggle functionality
@@ -58,6 +55,5 @@
       }
     });
   </script>
-  <%- script %>
 </body>
 </html> 
